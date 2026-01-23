@@ -63,3 +63,4 @@ Enabling strict mode in TypeScript (e.g., `strict`, `noImplicitAny`, `noUnusedLo
 Using Husky and `lint-staged`, we ensure that every piece of code committed to the repository is automatically linted and formatted. This prevents "broken" or poorly formatted code from entering the main codebase, maintaining a high standard of quality across the entire team without manual intervention.
 
 ## Local Running App Screenshot
+![Local App Screenshot](./public/sprint1-localhost.png)
