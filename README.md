@@ -50,5 +50,16 @@ The `src/` directory structure with segregated `app`, `components`, and `lib` fo
 - **Scalability**: By separating UI components from page logic and utility functions, the codebase remains manageable as it grows. New features can be added by creating new routes in `app/` and reusing existing components from `components/`.
 - **Collaboration**: A standardized structure reduces the cognitive load for new contributors. Team members can easily locate files, reducing the friction often found in large-scale collaborative projects.
 
+### TypeScript & ESLint Configuration
+
+#### Why strict TypeScript mode reduces runtime bugs?
+Enabling strict mode in TypeScript (e.g., `strict`, `noImplicitAny`, `noUnusedLocals`) ensures that the compiler catches potential errors at development time rather than runtime. It forces developers to handle null/undefined cases and ensures type safety across the application, significantly reducing "undefined is not a function" errors.
+
+#### What our chosen ESLint + Prettier rules enforce?
+- **Prettier**: Enforces consistent code formatting (double quotes, semicolons, 2-space indentation), which makes the codebase easier to read and reduces git diff noise from formatting changes.
+- **ESLint**: Enforces code quality rules, such as warning against `console.log` and ensuring semicolons and quotes are used consistently.
+
+#### How pre-commit hooks improve team consistency?
+Using Husky and `lint-staged`, we ensure that every piece of code committed to the repository is automatically linted and formatted. This prevents "broken" or poorly formatted code from entering the main codebase, maintaining a high standard of quality across the entire team without manual intervention.
+
 ## Local Running App Screenshot
-![Local App Screenshot](./public/sprint1-localhost.png)
