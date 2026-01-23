@@ -51,5 +51,4 @@ The `src/` directory structure with segregated `app`, `components`, and `lib` fo
 - **Collaboration**: A standardized structure reduces the cognitive load for new contributors. Team members can easily locate files, reducing the friction often found in large-scale collaborative projects.
 
 ## Local Running App Screenshot
-![Local App Screenshot](public/screenshot-placeholder.png)
-*(Replace this with an actual screenshot of the running app)*
+![Local App Screenshot](./public/sprint1-localhost.png)
