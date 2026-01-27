@@ -187,6 +187,17 @@ If your app had **10x more users**, the rendering strategy breakdown would chang
 - **With SSG/ISR hybrid:** 10x users = ~2x server cost ($50K → $100K/month)
 
 This is why major platforms (Netflix, Amazon, GitHub) use a careful blend of these strategies—not SSR everywhere.
+### TypeScript & ESLint Configuration
+
+#### Why strict TypeScript mode reduces runtime bugs?
+Enabling strict mode in TypeScript (e.g., `strict`, `noImplicitAny`, `noUnusedLocals`) ensures that the compiler catches potential errors at development time rather than runtime. It forces developers to handle null/undefined cases and ensures type safety across the application, significantly reducing "undefined is not a function" errors.
+
+#### What our chosen ESLint + Prettier rules enforce?
+- **Prettier**: Enforces consistent code formatting (double quotes, semicolons, 2-space indentation), which makes the codebase easier to read and reduces git diff noise from formatting changes.
+- **ESLint**: Enforces code quality rules, such as warning against `console.log` and ensuring semicolons and quotes are used consistently.
+
+#### How pre-commit hooks improve team consistency?
+Using Husky and `lint-staged`, we ensure that every piece of code committed to the repository is automatically linted and formatted. This prevents "broken" or poorly formatted code from entering the main codebase, maintaining a high standard of quality across the entire team without manual intervention.
 
 ## Local Running App Screenshot
 ![Local App Screenshot](./public/sprint1-localhost.png)
