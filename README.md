@@ -199,5 +199,70 @@ Enabling strict mode in TypeScript (e.g., `strict`, `noImplicitAny`, `noUnusedLo
 #### How pre-commit hooks improve team consistency?
 Using Husky and `lint-staged`, we ensure that every piece of code committed to the repository is automatically linted and formatted. This prevents "broken" or poorly formatted code from entering the main codebase, maintaining a high standard of quality across the entire team without manual intervention.
 
+## PostgreSQL Schema Design
+
+For Sprint-1, we have designed a normalized relational schema that captures the core entities of CollabLedger: **Users**, **Projects**, and **Tasks**.
+
+### 1. Schema Overview
+Our database uses PostgreSQL with Prisma ORM to ensure type safety and easy migrations. We focus on a clean, scalable structure that avoids redundancy through proper normalization.
+
+#### Core Entities:
+- **User**: Stores basic profile information.
+- **Project**: Represents an NGO initiative or open-source project.
+- **Task**: Represents specific units of work within a project's pipeline.
+
+### 2. Entity Relationship Explanation
+- **User → Project (1:Many)**: Each project is owned by a single user (the project creator/NGO member), but one user can own multiple projects.
+- **Project → Task (1:Many)**: Each task belongs to exactly one project, providing a clear hierarchy for project pipelines.
+
+### 3. Key Constraints & Data Integrity
+- **UUIDs for IDs**: We use UUIDs instead of auto-incrementing integers to improve security and scalability (making IDs unguessable).
+- **Unique Constraint**: The `email` field in the `User` table is unique to prevent duplicate accounts.
+- **Enums**: We use PostgreSQL Enums for `ProjectStatus` and `TaskStatus`. This ensures that only valid states (like `IDEA`, `IN_PROGRESS`, `TODO`, `DONE`) can be saved, providing strong data integrity at the database level.
+- **Cascading Deletes**: Relationships are configured with `onDelete: Cascade`. If a project is deleted, all its associated tasks are automatically removed, preventing "orphan" records.
+
+### 4. Indexing & Performance
+To ensure fast queries as the platform grows, we have implemented several strategic indexes:
+- **Foreign Key Indexes**: On `ownerId` (Project table) and `projectId` (Task table) to speed up relationship lookups.
+- **Status Indexes**: On `status` fields to optimize filtering projects by their current progress stage.
+
+### 5. Normalization (1NF, 2NF, 3NF)
+Our schema is fully normalized to the **Third Normal Form (3NF)**:
+- **1NF (Atomic fields)**: Each column contains only one value (e.g., no comma-separated lists of tasks inside the Project table).
+- **2NF (No partial dependency)**: All non-key attributes are fully dependent on the primary key.
+- **3NF (No transitive dependency)**: Non-key attributes do not depend on other non-key attributes, eliminating unnecessary data duplication.
+
+### 6. Migrations & Verification
+We use Prisma's migration tool to keep the database in sync with our schema:
+```bash
+# Apply migrations to the database
+npx prisma migrate dev --name init_schema
+
+# Open Prisma Studio to verify data visually
+npx prisma studio
+
+# Seed initial data for testing
+npx ts-node prisma/seed.ts
+```
+
+### 7. Seed Data Strategy
+To test our relational design, we have included a script in `prisma/seed.ts` that:
+1. Creates a dummy **User** (NGO member).
+2. Links a **Project** to that User.
+3. Attaches multiple **Tasks** to that Project.
+This ensures that the foreign key constraints and cascading deletes are working exactly as intended during development.
+
+---
+
+## Reflection: Schema Design
+
+**Why this schema supports growth?**
+By using UUIDs and a normalized 3NF structure, we have built a foundation where adding new features (like comments or contributors) won't require massive rewrites. The use of indexes on foreign keys and status fields ensures that even with thousands of projects, the platform remains responsive.
+
+**Which queries are most common and how the schema helps?**
+- **Listing public projects by status**: The index on `Project.status` makes this query extremely efficient.
+- **Viewing a project's task pipeline**: The indexing of `Task.projectId` allows us to fetch all tasks for a dashboard view almost instantly.
+- **NGO Dashboard**: Fetching projects owned by a specific user is optimized by the `ownerId` index.
+
 ## Local Running App Screenshot
 ![Local App Screenshot](./public/sprint1-localhost.png)
