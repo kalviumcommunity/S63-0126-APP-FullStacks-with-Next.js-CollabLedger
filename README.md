@@ -224,7 +224,7 @@ RUN npm install && npm run build
 CMD ["node", "server.js"]
 ```
 
-### 2. CI/CD Pipeline: The Automated Highway
+### 02. CI/CD Pipeline: The Automated Highway
 Continuous Integration (CI) and Continuous Deployment (CD) automate the process of testing and shipping code. We use **GitHub Actions** for this.
 
 **How our pipeline works:**
