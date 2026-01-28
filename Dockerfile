@@ -1,50 +1,38 @@
-# Stage 1: Dependencies
-# We use a multi-stage build to keep the final image small.
-# node:20-alpine is a lightweight Linux distribution with Node.js 20.
-FROM node:20-alpine AS deps
-RUN apk add --no-cache libc6-compat
+# Stage 1: Build Stage
+# This stage installs dependencies and builds the application.
+FROM node:20-alpine AS builder
+
+# Set the working directory inside the container
 WORKDIR /app
 
-# Install dependencies. npm ci is used for a clean, deterministic install.
-COPY package.json package-lock.json* ./
+# Copy package files first to leverage Docker's cache for dependencies
+COPY package.json package-lock.json ./
 RUN npm ci
 
-# Stage 2: Builder
-# This stage compiles the TypeScript code into production-ready JavaScript.
-FROM node:20-alpine AS builder
-WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
+# Copy the rest of the application code
 COPY . .
 
-# Run the build script to generate the .next folder.
+# Build the Next.js application
 RUN npm run build
 
-# Stage 3: Runner
-# This is the final image that will be deployed. It only contains the essentials.
+# Stage 2: Run Stage
+# This stage creates the final lightweight image to run the app.
 FROM node:20-alpine AS runner
+
 WORKDIR /app
 
+# Environment set to production for performance optimizations
 ENV NODE_ENV production
 
-# Create a non-root user for security (best practice for production).
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nextjs
-
-# Copy static assets and the standalone build output.
+# Copy only the necessary files from the builder stage
+COPY --from=builder /app/package.json ./
+COPY --from=builder /app/package-lock.json ./
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
-RUN mkdir .next
-RUN chown nextjs:nodejs .next
 
-# Standalone mode copies only the necessary node_modules into the build output,
-# drastically reducing image size from GBs to MBs.
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
-
-USER nextjs
-
-# The app listens on port 3000.
+# Expose the port Next.js runs on
 EXPOSE 3000
-ENV PORT 3000
 
-# Start the application using the standalone server entry point.
-CMD ["node", "server.js"]
+# Start the application using npm run start
+CMD ["npm", "run", "start"]

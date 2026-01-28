@@ -253,18 +253,44 @@ Security is paramount when dealing with database credentials and API keys:
 - **CI/CD**: GitHub Secrets store sensitive keys (like `AWS_ACCESS_KEY`) used during the build process.
 - **Production**: AWS Secrets Manager securely injects credentials into the running container at runtime, so they are never hardcoded in the codebase.
 
+### 5. Run & Verify Instructions
+To get the containerized environment up and running, follow these steps:
+
+1. **Setup Environment Variables**:
+   Copy the example environment file:
+   ```bash
+   cp .env.example .env
+   ```
+
+2. **Build and Start Containers**:
+   ```bash
+   docker-compose up --build
+   ```
+
+3. **Verify Everything is Running**:
+   In a new terminal, check the status of your containers:
+   ```bash
+   docker ps
+   ```
+
+**Expected Outcomes:**
+- **Next.js App**: Accessible at [http://localhost:3000](http://localhost:3000)
+- **PostgreSQL**: Running on port `5432`
+- **Redis**: Running on port `6379`
+- **Networking**: The app automatically connects to `db` and `redis` services using their service names.
+
 ---
 
 ## Reflection: Infrastructure & Deployment
 
 **What was challenging about containerization and deployment?**
-The most challenging part of containerization was optimizing the Docker image size. Next.js can produce large images if not configured correctly. Using the "standalone" output mode and a multi-stage build in the `Dockerfile` was essential to strip away unnecessary `node_modules` and keep the image lightweight.
+The most challenging part of containerization was managing the build stages to ensure the final image contains everything needed for `npm run start` while keeping it reasonably optimized. Identifying which folders (`.next`, `node_modules`, `public`) are essential for production runtime was a key learning moment.
 
 **What worked well?**
-Docker Compose worked exceptionally well for local development. Instead of developers manually installing and configuring PostgreSQL and Redis, a single `docker-compose up` command creates a consistent environment for everyone. GitHub Actions also provided immediate feedback on whether new code breaks the build.
+Docker Compose worked exceptionally well for orchestrating the multi-service environment (App, Postgres, Redis). Instead of manually installing databases, a single command sets up the entire stack. This ensures that every team member works in an identical environment.
 
 **What would be improved in a future deployment?**
-In a future version of CollabLedger, we would:
-1. **Infrastructure as Code (IaC)**: Use Terraform to automate the creation of AWS resources.
-2. **Zero-Downtime Deployment**: Use blue-green deployments to ensure users never experience an outage during updates.
-3. **Automated Migrations**: Integrate Prisma database migrations into the CI/CD pipeline so the database schema always matches the code.
+In future sprints, we could:
+1. **Optimize for Standalone**: Switch to Next.js "standalone" mode for even smaller production images.
+2. **Infrastructure as Code (IaC)**: Use tools like Terraform to automate cloud resource creation.
+3. **Database Migrations**: Automate Prisma migrations within the CI/CD pipeline.
