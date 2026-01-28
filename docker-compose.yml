@@ -1,6 +1,8 @@
 services:
   # Next.js Web Application
   app:
+  # The Next.js web application
+  web:
     build:
       context: .
       dockerfile: Dockerfile
@@ -16,6 +18,14 @@ services:
       - collabledger-network
 
   # PostgreSQL Database
+    environment:
+      - DATABASE_URL=postgresql://user:password@db:5432/collabledger?schema=public
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - db
+      - redis
+
+  # PostgreSQL database for persistence
   db:
     image: postgres:15-alpine
     restart: always
@@ -31,6 +41,15 @@ services:
       - collabledger-network
 
   # Redis Cache
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=collabledger
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data # Persist data even if container stops
+
+  # Redis for server-side caching
   redis:
     image: redis:7-alpine
     restart: always
@@ -45,5 +64,6 @@ networks:
     driver: bridge
 
 # Defined volume for data persistence
+
 volumes:
   postgres_data:
