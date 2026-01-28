@@ -1,0 +1,46 @@
+name: Deployment Pipeline
+
+# Trigger the workflow on push or pull request to the main branch
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest # Use a standard Ubuntu runner provided by GitHub
+
+    steps:
+      # 1. Pull the latest code from the repository
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 2. Setup Node.js environment
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      # 3. Install dependencies using npm ci (clean install for CI)
+      - name: Install dependencies
+        run: npm ci
+
+      # 4. Run ESLint to ensure code quality
+      - name: Run lint
+        run: npm run lint
+
+      # 5. Build the Next.js app to ensure there are no build errors
+      - name: Build application
+        run: npm run build
+        env:
+          # Use secrets for sensitive environment variables
+          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
+
+      # 6. Placeholder for actual deployment to AWS
+      - name: Deployment Simulation
+        run: |
+          echo "Simulating deployment to AWS..."
+          echo "In a real scenario, this would involve pushing a Docker image to AWS ECR"
+          echo "and updating an AWS App Runner service or EC2 instance."
