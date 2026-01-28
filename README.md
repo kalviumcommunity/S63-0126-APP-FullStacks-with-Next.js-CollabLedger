@@ -201,3 +201,70 @@ Using Husky and `lint-staged`, we ensure that every piece of code committed to t
 
 ## Local Running App Screenshot
 ![Local App Screenshot](./public/sprint1-localhost.png)
+
+## Understanding Cloud Deployments: Docker → CI/CD → AWS
+
+This section explains how CollabLedger moves from a local development environment to a production-ready cloud infrastructure.
+
+### 1. Dockerization: "It works on my machine"
+Docker allows us to package the application, its environment, and its dependencies into a single "container". This ensures that the app runs exactly the same way on a developer's laptop as it does on an AWS server.
+
+- **Dockerfile**: We use a multi-stage Dockerfile to keep the production image small. It installs dependencies, builds the Next.js app in "standalone" mode, and runs only the necessary files.
+- **Docker Compose**: For local development, we use Compose to orchestrate three services:
+  - `web`: The Next.js application.
+  - `db`: A PostgreSQL database.
+  - `redis`: A Redis instance for caching.
+
+```yaml
+# Simplified Dockerfile concept
+FROM node:20-alpine
+WORKDIR /app
+COPY . .
+RUN npm install && npm run build
+CMD ["node", "server.js"]
+```
+
+### 02. CI/CD Pipeline: The Automated Highway
+Continuous Integration (CI) and Continuous Deployment (CD) automate the process of testing and shipping code. We use **GitHub Actions** for this.
+
+**How our pipeline works:**
+1. **Trigger**: Every time code is pushed to the `main` branch.
+2. **Build & Test**: The pipeline installs dependencies, runs the linter to catch errors, and attempts to build the production application.
+3. **Deploy (Simulated)**: If the build succeeds, it can be deployed to AWS.
+
+### 3. Cloud Architecture on AWS
+In a production scenario, CollabLedger would be deployed using the following AWS services:
+
+```text
+       [ User Browser ]
+              | (HTTPS)
+      [ AWS App Runner ]  <--- Runs our Docker Container
+        /           \
+[ AWS RDS (Postgres) ] [ AWS ElastiCache (Redis) ]
+```
+
+- **AWS App Runner**: A fully managed service that takes our Docker image and runs it, automatically scaling up or down based on traffic.
+- **AWS RDS**: A managed PostgreSQL database that handles backups, patching, and scaling.
+- **AWS ElastiCache**: Provides a managed Redis instance for fast data retrieval.
+
+### 4. Secrets & Environment Management
+Security is paramount when dealing with database credentials and API keys:
+- **Local**: We use `.env.local` (ignored by Git) for local secrets.
+- **CI/CD**: GitHub Secrets store sensitive keys (like `AWS_ACCESS_KEY`) used during the build process.
+- **Production**: AWS Secrets Manager securely injects credentials into the running container at runtime, so they are never hardcoded in the codebase.
+
+---
+
+## Reflection: Infrastructure & Deployment
+
+**What was challenging about containerization and deployment?**
+The most challenging part of containerization was optimizing the Docker image size. Next.js can produce large images if not configured correctly. Using the "standalone" output mode and a multi-stage build in the `Dockerfile` was essential to strip away unnecessary `node_modules` and keep the image lightweight.
+
+**What worked well?**
+Docker Compose worked exceptionally well for local development. Instead of developers manually installing and configuring PostgreSQL and Redis, a single `docker-compose up` command creates a consistent environment for everyone. GitHub Actions also provided immediate feedback on whether new code breaks the build.
+
+**What would be improved in a future deployment?**
+In a future version of CollabLedger, we would:
+1. **Infrastructure as Code (IaC)**: Use Terraform to automate the creation of AWS resources.
+2. **Zero-Downtime Deployment**: Use blue-green deployments to ensure users never experience an outage during updates.
+3. **Automated Migrations**: Integrate Prisma database migrations into the CI/CD pipeline so the database schema always matches the code.
