@@ -201,3 +201,66 @@ Using Husky and `lint-staged`, we ensure that every piece of code committed to t
 
 ## Local Running App Screenshot
 ![Local App Screenshot](./public/sprint1-localhost.png)
+
+## Docker & Compose Setup for Local Development
+
+This project is fully containerized using Docker and Docker Compose to ensure a consistent development environment across all team members' machines.
+
+### 1. Dockerfile (Next.js Application)
+We use a **multi-stage build** in our `Dockerfile` to optimize the final image size and security.
+- **Stage 1 (Builder)**: This stage installs the full set of dependencies (including development tools) and runs `npm run build` to generate the production-ready `.next` folder.
+- **Stage 2 (Runtime)**: This is the final image. We only copy the strictly necessary files (build artifacts and production dependencies) from the builder stage. This keeps the image lightweight and reduces the attack surface.
+
+### 2. Docker Compose (Orchestration)
+Our `docker-compose.yml` file manages three main services:
+- **app**: The Next.js web application, which depends on the database and Redis cache.
+- **db**: A PostgreSQL database container for persistent data storage.
+- **redis**: A Redis container used for fast server-side caching.
+
+#### Key Features:
+- **Networks**: All services are connected via a shared bridge network (`collabledger-network`). This allows the app to communicate with the database using the hostname `db` and with Redis using the hostname `redis`.
+- **Volumes**: We use a named volume (`postgres_data`) for the PostgreSQL container. This ensures that your data persists even if you stop or remove the containers.
+- **Environment Variables**: Sensitive information like database credentials and connection strings are loaded from a `.env` file, which is ignored by Git for security.
+
+### 3. Run & Verify Instructions
+
+#### Prerequisites:
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) installed and running.
+
+#### How to start the environment:
+1. **Initialize Environment Variables**:
+   Copy the example environment file to create your local `.env`:
+   ```bash
+   cp .env.example .env
+   ```
+2. **Build and Launch**:
+   Execute the following command to build the images and start the containers in the background:
+   ```bash
+   docker-compose up --build -d
+   ```
+3. **Verify Status**:
+   Check if all containers are running successfully:
+   ```bash
+   docker ps
+   ```
+
+#### Expected Outcomes:
+- **Web App**: Accessible at [http://localhost:3000](http://localhost:3000).
+- **Database**: PostgreSQL is listening on port `5432`.
+- **Cache**: Redis is listening on port `6379`.
+
+---
+
+## Reflection: Containerization & DevOps
+
+**What challenges were faced while setting up Docker & Compose?**
+The primary challenge was managing the multi-stage build effectively. Ensuring that all required folders (like `.next` and `node_modules`) were correctly copied from the `builder` to the `runtime` stage without bloating the image required careful planning. Additionally, configuring the correct internal networking hostnames (using `db` instead of `localhost` in the connection string) was a critical step for service communication.
+
+**What worked well?**
+Docker Compose worked exceptionally well for orchestrating the multi-container stack. Being able to spin up the entire application, database, and cache with a single command (`docker-compose up`) eliminates "it works on my machine" issues and significantly speeds up the onboarding process for new team members.
+
+**What would be improved in future deployments?**
+In future sprints, we would:
+- **Infrastructure as Code (IaC)**: Use Terraform to manage cloud resources (like AWS RDS or Azure Database for PostgreSQL) to match our local container setup.
+- **CI/CD Integration**: Fully automate the build and push process to a container registry (like ECR or Docker Hub) using GitHub Actions.
+- **Standalone Mode**: Further optimize the Next.js target to `standalone` mode to reduce the container size even more.
