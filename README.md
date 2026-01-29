@@ -41,6 +41,31 @@ The project follows a standard Next.js `src/` directory structure to ensure clea
 4. **Access the application:**
    Open [http://localhost:3000](http://localhost:3000) in your browser.
 
+## Environment-Aware Builds & Secrets
+
+### Environment Differences
+- **Development** (`.env.development`): local services and localhost API base URL.
+- **Staging** (`.env.staging`): pre-production endpoints for integration testing.
+- **Production** (`.env.production`): production endpoints and database URLs.
+
+### Where Secrets Are Stored
+- **Local**: `.env.development`, `.env.staging`, `.env.production` (ignored by Git).
+- **CI/CD**: GitHub Secrets inject values at build time.
+- **Runtime (optional AWS)**: AWS Secrets Manager or SSM Parameter Store.
+
+### Why Env-Aware Builds Improve CI/CD
+- Prevents accidental cross-environment configuration.
+- Ensures the correct API endpoints and database connections are used per build.
+- Makes deployments reproducible and auditable with explicit environment selection.
+
+### Local Build Verification
+```bash
+npm run build:staging
+npm run build:production
+```
+If the build succeeds, the `NEXT_PUBLIC_APP_ENV` badge on the homepage and the
+`/api/health` response will reflect the selected environment.
+
 ## Reflection
 
 ### Why this folder structure was chosen?
@@ -187,385 +212,211 @@ If your app had **10x more users**, the rendering strategy breakdown would chang
 - **With SSG/ISR hybrid:** 10x users = ~2x server cost ($50K → $100K/month)
 
 This is why major platforms (Netflix, Amazon, GitHub) use a careful blend of these strategies—not SSR everywhere.
+### TypeScript & ESLint Configuration
 
-## Environment Variable Management
+#### Why strict TypeScript mode reduces runtime bugs?
+Enabling strict mode in TypeScript (e.g., `strict`, `noImplicitAny`, `noUnusedLocals`) ensures that the compiler catches potential errors at development time rather than runtime. It forces developers to handle null/undefined cases and ensures type safety across the application, significantly reducing "undefined is not a function" errors.
 
-This project implements secure environment variable management following Next.js best practices. Environment variables are essential for:
-- Separating configuration from code
-- Managing secrets and credentials safely
-- Supporting different environments (local, staging, production)
-- Protecting sensitive data from exposure to the browser
+#### What our chosen ESLint + Prettier rules enforce?
+- **Prettier**: Enforces consistent code formatting (double quotes, semicolons, 2-space indentation), which makes the codebase easier to read and reduces git diff noise from formatting changes.
+- **ESLint**: Enforces code quality rules, such as warning against `console.log` and ensuring semicolons and quotes are used consistently.
 
-### Server-Side vs Client-Side Variables
+#### How pre-commit hooks improve team consistency?
+Using Husky and `lint-staged`, we ensure that every piece of code committed to the repository is automatically linted and formatted. This prevents "broken" or poorly formatted code from entering the main codebase, maintaining a high standard of quality across the entire team without manual intervention.
 
-#### Server-Side Variables (Private)
-Server-side variables are only accessible on the server and are **never** exposed to the browser. Use these for sensitive data:
+## PostgreSQL Schema Design
 
-```
-DATABASE_URL=postgresql://...
-API_SECRET=secret_key_...
-PRIVATE_API_KEY=...
-```
+For Sprint-1, we have designed a normalized relational schema that captures the core entities of CollabLedger: **Users**, **Projects**, and **Tasks**.
 
-**Where to use:**
-- API routes (`src/app/api/`)
-- Server components (files marked with `'use server'`)
-- Server utilities (e.g., `src/lib/env.server.ts`)
+### 1. Schema Overview
+Our database uses PostgreSQL with Prisma ORM to ensure type safety and easy migrations. We focus on a clean, scalable structure that avoids redundancy through proper normalization.
 
-**Example:**
-```typescript
-// ✓ SAFE: Server component or API route
-import { getDatabaseUrl } from '@/lib/env.server';
+#### Core Entities:
+- **User**: Stores basic profile information.
+- **Project**: Represents an NGO initiative or open-source project.
+- **Task**: Represents specific units of work within a project's pipeline.
 
-export default async function MyServerComponent() {
-  const dbUrl = getDatabaseUrl();
-  // Use DATABASE_URL only on the server
-  return <div>Data loaded from secure database</div>;
-}
-```
+### 2. Entity Relationship Explanation
+- **User → Project (1:Many)**: Each project is owned by a single user (the project creator/NGO member), but one user can own multiple projects.
+- **Project → Task (1:Many)**: Each task belongs to exactly one project, providing a clear hierarchy for project pipelines.
 
-#### Client-Side Variables (Public - NEXT_PUBLIC_)
-Client-side variables must be prefixed with `NEXT_PUBLIC_` to be accessible in the browser. These are:
-- Compiled into the JavaScript bundle at build time
-- Visible in the browser's network requests and source code
-- **Only safe for non-sensitive data** (API endpoints, analytics IDs, etc.)
+### 3. Key Constraints & Data Integrity
+- **UUIDs for IDs**: We use UUIDs instead of auto-incrementing integers to improve security and scalability (making IDs unguessable).
+- **Unique Constraint**: The `email` field in the `User` table is unique to prevent duplicate accounts.
+- **Enums**: We use PostgreSQL Enums for `ProjectStatus` and `TaskStatus`. This ensures that only valid states (like `IDEA`, `IN_PROGRESS`, `TODO`, `DONE`) can be saved, providing strong data integrity at the database level.
+- **Cascading Deletes**: Relationships are configured with `onDelete: Cascade`. If a project is deleted, all its associated tasks are automatically removed, preventing "orphan" records.
 
-```
-NEXT_PUBLIC_API_BASE_URL=http://localhost:3000/api
-NEXT_PUBLIC_ANALYTICS_ID=UA-XXXXX
-```
+### 4. Indexing & Performance
+To ensure fast queries as the platform grows, we have implemented several strategic indexes:
+- **Foreign Key Indexes**: On `ownerId` (Project table) and `projectId` (Task table) to speed up relationship lookups.
+- **Status Indexes**: On `status` fields to optimize filtering projects by their current progress stage.
 
-**Where to use:**
-- Client components (default in App Router)
-- Server components (also compiled at build time)
-- Browser console and network requests
+### 5. Normalization (1NF, 2NF, 3NF)
+Our schema is fully normalized to the **Third Normal Form (3NF)**:
+- **1NF (Atomic fields)**: Each column contains only one value (e.g., no comma-separated lists of tasks inside the Project table).
+- **2NF (No partial dependency)**: All non-key attributes are fully dependent on the primary key.
+- **3NF (No transitive dependency)**: Non-key attributes do not depend on other non-key attributes, eliminating unnecessary data duplication.
 
-**Example:**
-```typescript
-// ✓ SAFE: Public API endpoint, accessible in browser
-'use client';
+### 6. Migrations & Verification
+We use Prisma's migration tool to keep the database in sync with our schema:
+```bash
+# Apply migrations to the database
+npx prisma migrate dev --name init_schema
 
-import { getApiBaseUrl } from '@/lib/env.client';
+# Open Prisma Studio to verify data visually
+npx prisma studio
 
-export default function MyClientComponent() {
-  const apiUrl = getApiBaseUrl();
-  // This is fine because it's just a URL, not a secret
-  
-  const handleFetch = async () => {
-    const response = await fetch(`${apiUrl}/products`);
-    return response.json();
-  };
-
-  return <button onClick={handleFetch}>Load Products</button>;
-}
+# Seed initial data for testing
+npx ts-node prisma/seed.ts
 ```
 
-### The NEXT_PUBLIC_ Prefix Explained
+### 7. Seed Data Strategy
+To test our relational design, we have included a script in `prisma/seed.ts` that:
+1. Creates a dummy **User** (NGO member).
+2. Links a **Project** to that User.
+3. Attaches multiple **Tasks** to that Project.
+This ensures that the foreign key constraints and cascading deletes are working exactly as intended during development.
 
-Next.js replaces all `NEXT_PUBLIC_` variables with their values at **build time**. This means:
-- ✓ `NEXT_PUBLIC_API_BASE_URL` → Replaced with `http://localhost:3000/api` in the bundle
-- ✗ `DATABASE_URL` → Not included in the bundle (server-only)
+---
 
-**Security Rule:**
-> Never prefix sensitive data with `NEXT_PUBLIC_`. If it starts with `NEXT_PUBLIC_`, assume it will be visible to the browser.
+## Reflection: Schema Design
 
-### Getting Started with Environment Variables
+**Why this schema supports growth?**
+By using UUIDs and a normalized 3NF structure, we have built a foundation where adding new features (like comments or contributors) won't require massive rewrites. The use of indexes on foreign keys and status fields ensures that even with thousands of projects, the platform remains responsive.
 
-1. **Copy the template:**
+**Which queries are most common and how the schema helps?**
+- **Listing public projects by status**: The index on `Project.status` makes this query extremely efficient.
+- **Viewing a project's task pipeline**: The indexing of `Task.projectId` allows us to fetch all tasks for a dashboard view almost instantly.
+- **NGO Dashboard**: Fetching projects owned by a specific user is optimized by the `ownerId` index.
+
+## Local Running App Screenshot
+![Local App Screenshot](./public/sprint1-localhost.png)
+
+## Docker & Compose Setup for Local Development
+
+This project is fully containerized using Docker and Docker Compose to ensure a consistent development environment across all team members' machines.
+
+### 1. Dockerfile (Next.js Application)
+We use a **multi-stage build** in our `Dockerfile` to optimize the final image size and security.
+- **Stage 1 (Builder)**: This stage installs the full set of dependencies (including development tools) and runs `npm run build` to generate the production-ready `.next` folder.
+- **Stage 2 (Runtime)**: This is the final image. We only copy the strictly necessary files (build artifacts and production dependencies) from the builder stage. This keeps the image lightweight and reduces the attack surface.
+
+### 2. Docker Compose (Orchestration)
+Our `docker-compose.yml` file manages three main services:
+- **app**: The Next.js web application, which depends on the database and Redis cache.
+- **db**: A PostgreSQL database container for persistent data storage.
+- **redis**: A Redis container used for fast server-side caching.
+
+#### Key Features:
+- **Networks**: All services are connected via a shared bridge network (`collabledger-network`). This allows the app to communicate with the database using the hostname `db` and with Redis using the hostname `redis`.
+- **Volumes**: We use a named volume (`postgres_data`) for the PostgreSQL container. This ensures that your data persists even if you stop or remove the containers.
+- **Environment Variables**: Sensitive information like database credentials and connection strings are loaded from a `.env` file, which is ignored by Git for security.
+
+### 3. Run & Verify Instructions
+
+#### Prerequisites:
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) installed and running.
+
+#### How to start the environment:
+1. **Initialize Environment Variables**:
+   Copy the example environment file to create your local `.env`:
    ```bash
-   cp .env.example .env.local
+   cp .env.example .env
    ```
-
-2. **Fill in your local values:**
-   ```env
-   # .env.local
-   DATABASE_URL=postgresql://user:password@localhost:5432/mydb
-   NEXT_PUBLIC_API_BASE_URL=http://localhost:3000/api
-   ```
-
-3. **Access in code:**
-   ```typescript
-   // Server-side
-   const dbUrl = process.env.DATABASE_URL;
-
-   // Client-side (only NEXT_PUBLIC_ variables)
-   const apiUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
-   ```
-
-4. **Restart the dev server** after adding new environment variables:
+2. **Build and Launch**:
+   Execute the following command to build the images and start the containers in the background:
    ```bash
-   npm run dev
+   docker-compose up --build -d
+   ```
+3. **Verify Status**:
+   Check if all containers are running successfully:
+   ```bash
+   docker ps
    ```
 
-### File Structure for Environment Management
+#### Expected Outcomes:
+- **Web App**: Accessible at [http://localhost:3000](http://localhost:3000).
+- **Database**: PostgreSQL is listening on port `5432`.
+- **Cache**: Redis is listening on port `6379`.
 
-```
-project-root/
-├── .env.example          # ✓ Committed: Template with placeholders
-├── .env.local            # ✗ Not committed: Local development secrets
-├── .env.staging          # ✗ Not committed: Staging environment config
-├── .env.production       # ✗ Not committed: Production config
-├── .gitignore            # Contains: .env* and !.env.example
-└── src/lib/
-    ├── env.server.ts     # Server-side variable utilities
-    └── env.client.ts     # Client-side variable utilities
-```
+---
 
-### Common Pitfalls Avoided
+## Reflection: Containerization & DevOps
 
-#### 1. Exposing Server Secrets to the Browser
-```typescript
-// ✗ WRONG: Using server secret in client component
-'use client';
-const apiKey = process.env.API_SECRET; // undefined in browser!
+**What challenges were faced while setting up Docker & Compose?**
+The primary challenge was managing the multi-stage build effectively. Ensuring that all required folders (like `.next` and `node_modules`) were correctly copied from the `builder` to the `runtime` stage without bloating the image required careful planning. Additionally, configuring the correct internal networking hostnames (using `db` instead of `localhost` in the connection string) was a critical step for service communication.
 
-// ✓ CORRECT: Use server-only in API route
-// src/app/api/example/route.ts
-export async function POST(request: Request) {
-  const apiKey = process.env.API_SECRET; // Safe on server
-  // ... use apiKey ...
-}
-```
+**What worked well?**
+Docker Compose worked exceptionally well for orchestrating the multi-container stack. Being able to spin up the entire application, database, and cache with a single command (`docker-compose up`) eliminates "it works on my machine" issues and significantly speeds up the onboarding process for new team members.
 
-#### 2. Forgetting NEXT_PUBLIC_ Prefix
-```typescript
-// ✗ WRONG: Client won't have access
-const apiUrl = process.env.API_BASE_URL; // undefined
+**What would be improved in future deployments?**
+In future sprints, we would:
+- **Infrastructure as Code (IaC)**: Use Terraform to manage cloud resources (like AWS RDS or Azure Database for PostgreSQL) to match our local container setup.
+- **CI/CD Integration**: Fully automate the build and push process to a container registry (like ECR or Docker Hub) using GitHub Actions.
+- **Standalone Mode**: Further optimize the Next.js target to `standalone` mode to reduce the container size even more.
+## Understanding Cloud Deployments: Docker → CI/CD → AWS
 
-// ✓ CORRECT: Add prefix
-const apiUrl = process.env.NEXT_PUBLIC_API_BASE_URL; // works
-```
+This section explains how CollabLedger moves from a local development environment to a production-ready cloud infrastructure.
 
-#### 3. Using Environment Variables Conditionally
-```typescript
-// ✗ WRONG: Dynamic access doesn't work with build-time replacement
-const key = isDev ? 'DEV_KEY' : 'PROD_KEY';
-const value = process.env[key]; // undefined!
+### 1. Dockerization: "It works on my machine"
+Docker allows us to package the application, its environment, and its dependencies into a single "container". This ensures that the app runs exactly the same way on a developer's laptop as it does on an AWS server.
 
-// ✓ CORRECT: Static access
-const value = isDev 
-  ? process.env.NEXT_PUBLIC_DEV_KEY 
-  : process.env.NEXT_PUBLIC_PROD_KEY;
+- **Dockerfile**: We use a multi-stage Dockerfile to keep the production image small. It installs dependencies, builds the Next.js app in "standalone" mode, and runs only the necessary files.
+- **Docker Compose**: For local development, we use Compose to orchestrate three services:
+  - `web`: The Next.js application.
+  - `db`: A PostgreSQL database.
+  - `redis`: A Redis instance for caching.
+
+```yaml
+# Simplified Dockerfile concept
+FROM node:20-alpine
+WORKDIR /app
+COPY . .
+RUN npm install && npm run build
+CMD ["node", "server.js"]
 ```
 
-#### 4. Assuming .env.local Persists After Rebuild
-Environment variables are loaded once at startup. After changing `.env.local`:
-1. Restart the development server
-2. Changes apply to new code, but existing in-memory values don't update
-3. Browser must reload to see new `NEXT_PUBLIC_` values
+### 02. CI/CD Pipeline: The Automated Highway
+Continuous Integration (CI) and Continuous Deployment (CD) automate the process of testing and shipping code. We use **GitHub Actions** for this.
 
-### Deployment Considerations
+**How our pipeline works:**
+1. **Trigger**: Every time code is pushed to the `main` branch.
+2. **Build & Test**: The pipeline installs dependencies, runs the linter to catch errors, and attempts to build the production application.
+3. **Deploy (Simulated)**: If the build succeeds, it can be deployed to AWS.
 
-**For production deployment:**
-1. Set environment variables in your hosting platform (Vercel, Netlify, AWS, etc.)
-2. Do NOT commit `.env.local` or `.env.production` to version control
-3. Use `.env.example` to document required variables for your team
-4. Add validation at startup to catch missing variables early
+### 3. Cloud Architecture on AWS
+In a production scenario, CollabLedger would be deployed using the following AWS services:
 
-**Example Validation (in `src/app/layout.tsx`):**
-```typescript
-import { validateServerEnv } from '@/lib/env.server';
-
-// This runs once when the server starts
-if (typeof window === 'undefined') {
-  validateServerEnv();
-}
+```text
+       [ User Browser ]
+              | (HTTPS)
+      [ AWS App Runner ]  <--- Runs our Docker Container
+        /           \
+[ AWS RDS (Postgres) ] [ AWS ElastiCache (Redis) ]
 ```
 
-## Team Branching & PR Workflow
+- **AWS App Runner**: A fully managed service that takes our Docker image and runs it, automatically scaling up or down based on traffic.
+- **AWS RDS**: A managed PostgreSQL database that handles backups, patching, and scaling.
+- **AWS ElastiCache**: Provides a managed Redis instance for fast data retrieval.
 
-This section documents the professional GitHub workflow used by the CollabLedger team to ensure high code quality, smooth collaboration, and scalable development practices.
+### 4. Secrets & Environment Management
+Security is paramount when dealing with database credentials and API keys:
+- **Local**: We use `.env.local` (ignored by Git) for local secrets.
+- **CI/CD**: GitHub Secrets store sensitive keys (like `AWS_ACCESS_KEY`) used during the build process.
+- **Production**: AWS Secrets Manager securely injects credentials into the running container at runtime, so they are never hardcoded in the codebase.
 
-### Branch Naming Conventions
+---
 
-All branches should follow these naming patterns to maintain clarity and organization:
+## Reflection: Infrastructure & Deployment
 
-#### Feature Branches: `feature/<feature-name>`
-For new features or enhancements.
-```bash
-git checkout -b feature/user-dashboard
-git checkout -b feature/add-notification-system
-git checkout -b feature/improve-performance
-```
+**What was challenging about containerization and deployment?**
+The most challenging part of containerization was optimizing the Docker image size. Next.js can produce large images if not configured correctly. Using the "standalone" output mode and a multi-stage build in the `Dockerfile` was essential to strip away unnecessary `node_modules` and keep the image lightweight.
 
-#### Bug Fix Branches: `fix/<bug-name>`
-For bug fixes and corrections.
-```bash
-git checkout -b fix/login-redirect-issue
-git checkout -b fix/memory-leak-in-api
-git checkout -b fix/typo-in-help-text
-```
+**What worked well?**
+Docker Compose worked exceptionally well for local development. Instead of developers manually installing and configuring PostgreSQL and Redis, a single `docker-compose up` command creates a consistent environment for everyone. GitHub Actions also provided immediate feedback on whether new code breaks the build.
 
-#### Chore Branches: `chore/<task-name>`
-For maintenance, dependencies, refactoring, and non-feature work.
-```bash
-git checkout -b chore/update-dependencies
-git checkout -b chore/refactor-auth-module
-git checkout -b chore/remove-dead-code
-```
-
-#### Documentation Branches: `docs/<update-name>`
-For documentation updates and README changes.
-```bash
-git checkout -b docs/api-endpoints-guide
-git checkout -b docs/setup-instructions
-git checkout -b docs/contributing-guide
-```
-
-**Branch Naming Best Practices:**
-- Use lowercase letters only (except hyphens)
-- Use hyphens to separate words (not underscores)
-- Be descriptive but concise (max 50 characters recommended)
-- Use the issue number if applicable: `feature/user-dashboard-123`
-
-### Pull Request Workflow
-
-#### Step 1: Create a Descriptive PR
-When creating a pull request:
-1. Use the provided [pull request template](.github/pull_request_template.md)
-2. Link the related issue (e.g., `Closes #123`)
-3. Write a clear summary explaining what changed and why
-4. Provide screenshots/evidence for UI changes
-
-#### Step 2: Ensure Code Quality Checks Pass
-Before requesting review, ensure:
-- ✓ Code builds: `npm run build`
-- ✓ No TypeScript errors: `npx tsc --noEmit`
-- ✓ Linting passes: `npm run lint` (if configured)
-- ✓ Tests pass: `npm run test` (if applicable)
-- ✓ No console errors or warnings in development
-
-#### Step 3: Request Review from Teammates
-- Request at least one code review before merging
-- Assign the PR to relevant team members
-- Add labels (bug, feature, documentation, etc.)
-- Mention reviewers if they don't get notified automatically
-
-#### Step 4: Address Feedback
-- Respond to all comments respectfully
-- Make requested changes in follow-up commits (don't force push if in active review)
-- Re-request review after addressing feedback
-- Discuss disagreements constructively; escalate if needed
-
-#### Step 5: Merge to Main
-Once approved:
-1. Ensure branch is up-to-date with `main`
-2. Use "Squash and merge" for feature branches (keeps history clean)
-3. Use "Create a merge commit" for important structural changes
-4. Delete the branch after merging
-5. Verify deployment to staging/production
-
-### Code Review Checklist for Reviewers
-
-Reviewers should verify all items before approving:
-
-#### Code Quality
-- [ ] Code is clean, readable, and follows project conventions
-- [ ] Variable and function names are descriptive
-- [ ] No unnecessary complexity or duplication
-- [ ] Comments explain "why," not "what"
-- [ ] No debug code or console.logs left behind
-
-#### Functionality & Testing
-- [ ] Changes work as described in the PR
-- [ ] Edge cases are handled
-- [ ] Error handling is appropriate
-- [ ] No new console errors or warnings
-- [ ] Tests cover new functionality
-
-#### TypeScript & Type Safety
-- [ ] No `any` types without justification
-- [ ] Types are properly defined for function parameters and returns
-- [ ] Type errors are resolved
-- [ ] Generics are used appropriately
-
-#### Documentation & Accessibility
-- [ ] Comments are clear and helpful
-- [ ] README updated if needed (especially for public APIs)
-- [ ] Environment variables documented (if new ones added)
-- [ ] UI changes meet accessibility standards (WCAG 2.1 AA)
-- [ ] Component props are documented
-
-#### Security & Performance
-- [ ] No hardcoded secrets or credentials
-- [ ] Environment variables used correctly (no `NEXT_PUBLIC_` on secrets)
-- [ ] No SQL injection or XSS vulnerabilities
-- [ ] Database queries are optimized
-- [ ] API calls are efficient (no N+1 queries)
-
-#### Next.js Specific
-- [ ] Server components are used for sensitive operations
-- [ ] Client components use `'use client'` when needed
-- [ ] Proper use of dynamic rendering vs static generation
-- [ ] Image optimization used where applicable
-- [ ] No unnecessary re-renders or state management
-
-### Workflow Benefits & Reflection
-
-This structured team workflow provides significant value across multiple dimensions:
-
-#### 1. **Code Quality & Reliability**
-- **Mandatory Code Reviews:** Every change is reviewed by at least one teammate before merging, catching bugs and design issues early
-- **Clear Conventions:** Consistent branch naming and PR structure reduce confusion and make the git history readable
-- **Automated Validation:** Build, lint, and type checks ensure code meets standards before human review
-- **Result:** Fewer bugs reach production, lower technical debt, more maintainable codebase
-
-#### 2. **Team Collaboration & Knowledge Sharing**
-- **Peer Learning:** Reviews expose team members to different approaches and improvements
-- **Documented Context:** PR descriptions and comments create a historical record of design decisions
-- **Distributed Responsibility:** No single person is a bottleneck; multiple team members understand each feature
-- **Result:** Stronger team, faster onboarding for new developers, collective code ownership
-
-#### 3. **Scalability & Project Growth**
-- **Modular Changes:** Feature branches isolate work, making it easier to manage multiple parallel features
-- **Easy Rollback:** If issues arise, reverting a single PR is cleaner than debugging merged code
-- **Clear Git History:** Well-structured commits and branches make it easy to track when and why changes occurred
-- **Result:** The codebase scales gracefully without becoming chaotic; large teams can work without stepping on each other
-
-#### 4. **Professional Standards & Best Practices**
-- **Industry Alignment:** This workflow matches practices used by major tech companies (Google, GitHub, Netflix)
-- **Consistency:** All changes follow the same process, reducing friction
-- **Documentation:** PR templates and this guide ensure expectations are clear
-- **Result:** Professional development practices that clients and partners respect; easier hiring of experienced developers
-
-#### 5. **Continuous Improvement**
-- **Feedback Loop:** Code reviews are opportunities to discuss improvements, not just catch bugs
-- **Pattern Recognition:** Over time, the team identifies best practices and incorporates them into standards
-- **Metrics & Insights:** Git history provides data on team velocity, common issues, and improvement areas
-- **Result:** The team's engineering practices improve continuously
-
-### Quick Reference
-
-**Create and push a new feature:**
-```bash
-# Create a new feature branch from main
-git checkout main
-git pull origin main
-git checkout -b feature/new-feature-name
-
-# Make your changes, commit, and push
-git add .
-git commit -m "feat: add new feature description"
-git push origin feature/new-feature-name
-```
-
-**Create a Pull Request:**
-1. Push your branch to GitHub
-2. Go to the repository and click "New Pull Request"
-3. Select your branch and `main` as the target
-4. Fill out the PR template with all required information
-5. Request review from teammates
-6. Wait for approvals before merging
-
-**Handling Merge Conflicts:**
-```bash
-# Update your branch with latest main
-git fetch origin
-git rebase origin/main
-
-# Resolve conflicts in your editor, then:
-git add .
-git rebase --continue
-git push origin feature/your-feature-name -f
-```
-
+**What would be improved in a future deployment?**
+In a future version of CollabLedger, we would:
+1. **Infrastructure as Code (IaC)**: Use Terraform to automate the creation of AWS resources.
+2. **Zero-Downtime Deployment**: Use blue-green deployments to ensure users never experience an outage during updates.
+3. **Automated Migrations**: Integrate Prisma database migrations into the CI/CD pipeline so the database schema always matches the code.
