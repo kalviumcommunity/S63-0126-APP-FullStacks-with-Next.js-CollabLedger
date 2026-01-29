@@ -3,8 +3,6 @@
 export const revalidate = false;
 
 export default function AboutPage() {
-  const buildTime = new Date().toISOString();
-
   return (
     <main className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-8">
       <div className="max-w-2xl mx-auto">
