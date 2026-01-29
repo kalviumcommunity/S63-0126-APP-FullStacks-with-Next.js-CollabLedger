@@ -66,6 +66,80 @@ npm run build:production
 If the build succeeds, the `NEXT_PUBLIC_APP_ENV` badge on the homepage and the
 `/api/health` response will reflect the selected environment.
 
+## Prisma ORM Setup
+
+### Why Prisma in CollabLedger?
+Prisma provides a type-safe database client, reduces runtime query errors, and
+improves developer productivity with autocompletion and schema-driven modeling.
+This aligns with the project's need for reliable data access in a collaborative
+platform.
+
+### Setup Steps Performed
+1. Installed Prisma and Prisma Client.
+2. Initialized Prisma with PostgreSQL (`DATABASE_URL` from env vars).
+3. Defined MVP models (`User`, `Project`) with relations.
+4. Generated Prisma Client.
+5. Implemented a singleton client for Next.js.
+6. Verified connection via a safe test query.
+
+### `schema.prisma` (excerpt)
+```prisma
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id       String   @id @default(uuid())
+  email    String   @unique
+  name     String?
+  projects Project[]
+}
+
+model Project {
+  id      String  @id @default(uuid())
+  title   String
+  ownerId String
+  owner   User    @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+}
+```
+
+### `src/lib/prisma.ts` (singleton)
+```typescript
+import { PrismaClient } from "@prisma/client";
+
+const globalForPrisma = global as unknown as { prisma?: PrismaClient };
+
+export const prisma =
+  globalForPrisma.prisma ||
+  new PrismaClient({
+    log: ["query", "error", "warn"],
+  });
+
+if (process.env.NODE_ENV !== "production") {
+  globalForPrisma.prisma = prisma;
+}
+```
+
+### Proof of Connection
+Run the app and call:
+```
+GET /api/prisma-test
+```
+Expected response (no sensitive data):
+```json
+{ "status": "ok", "userCount": 0 }
+```
+
+### Reflection
+Prisma improves reliability by enforcing schema constraints at compile time,
+reducing mismatched queries. It also accelerates development with generated
+types, which lowers the chance of runtime crashes and makes refactors safer.
+
 ## Reflection
 
 ### Why this folder structure was chosen?
