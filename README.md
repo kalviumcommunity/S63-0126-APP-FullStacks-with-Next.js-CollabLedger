@@ -372,3 +372,200 @@ if (typeof window === 'undefined') {
 }
 ```
 
+## Team Branching & PR Workflow
+
+This section documents the professional GitHub workflow used by the CollabLedger team to ensure high code quality, smooth collaboration, and scalable development practices.
+
+### Branch Naming Conventions
+
+All branches should follow these naming patterns to maintain clarity and organization:
+
+#### Feature Branches: `feature/<feature-name>`
+For new features or enhancements.
+```bash
+git checkout -b feature/user-dashboard
+git checkout -b feature/add-notification-system
+git checkout -b feature/improve-performance
+```
+
+#### Bug Fix Branches: `fix/<bug-name>`
+For bug fixes and corrections.
+```bash
+git checkout -b fix/login-redirect-issue
+git checkout -b fix/memory-leak-in-api
+git checkout -b fix/typo-in-help-text
+```
+
+#### Chore Branches: `chore/<task-name>`
+For maintenance, dependencies, refactoring, and non-feature work.
+```bash
+git checkout -b chore/update-dependencies
+git checkout -b chore/refactor-auth-module
+git checkout -b chore/remove-dead-code
+```
+
+#### Documentation Branches: `docs/<update-name>`
+For documentation updates and README changes.
+```bash
+git checkout -b docs/api-endpoints-guide
+git checkout -b docs/setup-instructions
+git checkout -b docs/contributing-guide
+```
+
+**Branch Naming Best Practices:**
+- Use lowercase letters only (except hyphens)
+- Use hyphens to separate words (not underscores)
+- Be descriptive but concise (max 50 characters recommended)
+- Use the issue number if applicable: `feature/user-dashboard-123`
+
+### Pull Request Workflow
+
+#### Step 1: Create a Descriptive PR
+When creating a pull request:
+1. Use the provided [pull request template](.github/pull_request_template.md)
+2. Link the related issue (e.g., `Closes #123`)
+3. Write a clear summary explaining what changed and why
+4. Provide screenshots/evidence for UI changes
+
+#### Step 2: Ensure Code Quality Checks Pass
+Before requesting review, ensure:
+- ✓ Code builds: `npm run build`
+- ✓ No TypeScript errors: `npx tsc --noEmit`
+- ✓ Linting passes: `npm run lint` (if configured)
+- ✓ Tests pass: `npm run test` (if applicable)
+- ✓ No console errors or warnings in development
+
+#### Step 3: Request Review from Teammates
+- Request at least one code review before merging
+- Assign the PR to relevant team members
+- Add labels (bug, feature, documentation, etc.)
+- Mention reviewers if they don't get notified automatically
+
+#### Step 4: Address Feedback
+- Respond to all comments respectfully
+- Make requested changes in follow-up commits (don't force push if in active review)
+- Re-request review after addressing feedback
+- Discuss disagreements constructively; escalate if needed
+
+#### Step 5: Merge to Main
+Once approved:
+1. Ensure branch is up-to-date with `main`
+2. Use "Squash and merge" for feature branches (keeps history clean)
+3. Use "Create a merge commit" for important structural changes
+4. Delete the branch after merging
+5. Verify deployment to staging/production
+
+### Code Review Checklist for Reviewers
+
+Reviewers should verify all items before approving:
+
+#### Code Quality
+- [ ] Code is clean, readable, and follows project conventions
+- [ ] Variable and function names are descriptive
+- [ ] No unnecessary complexity or duplication
+- [ ] Comments explain "why," not "what"
+- [ ] No debug code or console.logs left behind
+
+#### Functionality & Testing
+- [ ] Changes work as described in the PR
+- [ ] Edge cases are handled
+- [ ] Error handling is appropriate
+- [ ] No new console errors or warnings
+- [ ] Tests cover new functionality
+
+#### TypeScript & Type Safety
+- [ ] No `any` types without justification
+- [ ] Types are properly defined for function parameters and returns
+- [ ] Type errors are resolved
+- [ ] Generics are used appropriately
+
+#### Documentation & Accessibility
+- [ ] Comments are clear and helpful
+- [ ] README updated if needed (especially for public APIs)
+- [ ] Environment variables documented (if new ones added)
+- [ ] UI changes meet accessibility standards (WCAG 2.1 AA)
+- [ ] Component props are documented
+
+#### Security & Performance
+- [ ] No hardcoded secrets or credentials
+- [ ] Environment variables used correctly (no `NEXT_PUBLIC_` on secrets)
+- [ ] No SQL injection or XSS vulnerabilities
+- [ ] Database queries are optimized
+- [ ] API calls are efficient (no N+1 queries)
+
+#### Next.js Specific
+- [ ] Server components are used for sensitive operations
+- [ ] Client components use `'use client'` when needed
+- [ ] Proper use of dynamic rendering vs static generation
+- [ ] Image optimization used where applicable
+- [ ] No unnecessary re-renders or state management
+
+### Workflow Benefits & Reflection
+
+This structured team workflow provides significant value across multiple dimensions:
+
+#### 1. **Code Quality & Reliability**
+- **Mandatory Code Reviews:** Every change is reviewed by at least one teammate before merging, catching bugs and design issues early
+- **Clear Conventions:** Consistent branch naming and PR structure reduce confusion and make the git history readable
+- **Automated Validation:** Build, lint, and type checks ensure code meets standards before human review
+- **Result:** Fewer bugs reach production, lower technical debt, more maintainable codebase
+
+#### 2. **Team Collaboration & Knowledge Sharing**
+- **Peer Learning:** Reviews expose team members to different approaches and improvements
+- **Documented Context:** PR descriptions and comments create a historical record of design decisions
+- **Distributed Responsibility:** No single person is a bottleneck; multiple team members understand each feature
+- **Result:** Stronger team, faster onboarding for new developers, collective code ownership
+
+#### 3. **Scalability & Project Growth**
+- **Modular Changes:** Feature branches isolate work, making it easier to manage multiple parallel features
+- **Easy Rollback:** If issues arise, reverting a single PR is cleaner than debugging merged code
+- **Clear Git History:** Well-structured commits and branches make it easy to track when and why changes occurred
+- **Result:** The codebase scales gracefully without becoming chaotic; large teams can work without stepping on each other
+
+#### 4. **Professional Standards & Best Practices**
+- **Industry Alignment:** This workflow matches practices used by major tech companies (Google, GitHub, Netflix)
+- **Consistency:** All changes follow the same process, reducing friction
+- **Documentation:** PR templates and this guide ensure expectations are clear
+- **Result:** Professional development practices that clients and partners respect; easier hiring of experienced developers
+
+#### 5. **Continuous Improvement**
+- **Feedback Loop:** Code reviews are opportunities to discuss improvements, not just catch bugs
+- **Pattern Recognition:** Over time, the team identifies best practices and incorporates them into standards
+- **Metrics & Insights:** Git history provides data on team velocity, common issues, and improvement areas
+- **Result:** The team's engineering practices improve continuously
+
+### Quick Reference
+
+**Create and push a new feature:**
+```bash
+# Create a new feature branch from main
+git checkout main
+git pull origin main
+git checkout -b feature/new-feature-name
+
+# Make your changes, commit, and push
+git add .
+git commit -m "feat: add new feature description"
+git push origin feature/new-feature-name
+```
+
+**Create a Pull Request:**
+1. Push your branch to GitHub
+2. Go to the repository and click "New Pull Request"
+3. Select your branch and `main` as the target
+4. Fill out the PR template with all required information
+5. Request review from teammates
+6. Wait for approvals before merging
+
+**Handling Merge Conflicts:**
+```bash
+# Update your branch with latest main
+git fetch origin
+git rebase origin/main
+
+# Resolve conflicts in your editor, then:
+git add .
+git rebase --continue
+git push origin feature/your-feature-name -f
+```
+
