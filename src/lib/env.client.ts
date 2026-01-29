@@ -23,6 +23,14 @@ export function getApiBaseUrl(): string {
 }
 
 /**
+ * Get the public app environment (safe for client use)
+ * @returns The environment label (development, staging, production)
+ */
+export function getPublicAppEnv(): string {
+  return process.env.NEXT_PUBLIC_APP_ENV || 'development';
+}
+
+/**
  * Example: Make an API request using the public base URL
  * This can be used in both server and client components
  */

@@ -41,6 +41,31 @@ The project follows a standard Next.js `src/` directory structure to ensure clea
 4. **Access the application:**
    Open [http://localhost:3000](http://localhost:3000) in your browser.
 
+## Environment-Aware Builds & Secrets
+
+### Environment Differences
+- **Development** (`.env.development`): local services and localhost API base URL.
+- **Staging** (`.env.staging`): pre-production endpoints for integration testing.
+- **Production** (`.env.production`): production endpoints and database URLs.
+
+### Where Secrets Are Stored
+- **Local**: `.env.development`, `.env.staging`, `.env.production` (ignored by Git).
+- **CI/CD**: GitHub Secrets inject values at build time.
+- **Runtime (optional AWS)**: AWS Secrets Manager or SSM Parameter Store.
+
+### Why Env-Aware Builds Improve CI/CD
+- Prevents accidental cross-environment configuration.
+- Ensures the correct API endpoints and database connections are used per build.
+- Makes deployments reproducible and auditable with explicit environment selection.
+
+### Local Build Verification
+```bash
+npm run build:staging
+npm run build:production
+```
+If the build succeeds, the `NEXT_PUBLIC_APP_ENV` badge on the homepage and the
+`/api/health` response will reflect the selected environment.
+
 ## Reflection
 
 ### Why this folder structure was chosen?
