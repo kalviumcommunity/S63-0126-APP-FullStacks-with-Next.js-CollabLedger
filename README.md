@@ -188,5 +188,187 @@ If your app had **10x more users**, the rendering strategy breakdown would chang
 
 This is why major platforms (Netflix, Amazon, GitHub) use a careful blend of these strategies—not SSR everywhere.
 
-## Local Running App Screenshot
-![Local App Screenshot](./public/sprint1-localhost.png)
+## Environment Variable Management
+
+This project implements secure environment variable management following Next.js best practices. Environment variables are essential for:
+- Separating configuration from code
+- Managing secrets and credentials safely
+- Supporting different environments (local, staging, production)
+- Protecting sensitive data from exposure to the browser
+
+### Server-Side vs Client-Side Variables
+
+#### Server-Side Variables (Private)
+Server-side variables are only accessible on the server and are **never** exposed to the browser. Use these for sensitive data:
+
+```
+DATABASE_URL=postgresql://...
+API_SECRET=secret_key_...
+PRIVATE_API_KEY=...
+```
+
+**Where to use:**
+- API routes (`src/app/api/`)
+- Server components (files marked with `'use server'`)
+- Server utilities (e.g., `src/lib/env.server.ts`)
+
+**Example:**
+```typescript
+// ✓ SAFE: Server component or API route
+import { getDatabaseUrl } from '@/lib/env.server';
+
+export default async function MyServerComponent() {
+  const dbUrl = getDatabaseUrl();
+  // Use DATABASE_URL only on the server
+  return <div>Data loaded from secure database</div>;
+}
+```
+
+#### Client-Side Variables (Public - NEXT_PUBLIC_)
+Client-side variables must be prefixed with `NEXT_PUBLIC_` to be accessible in the browser. These are:
+- Compiled into the JavaScript bundle at build time
+- Visible in the browser's network requests and source code
+- **Only safe for non-sensitive data** (API endpoints, analytics IDs, etc.)
+
+```
+NEXT_PUBLIC_API_BASE_URL=http://localhost:3000/api
+NEXT_PUBLIC_ANALYTICS_ID=UA-XXXXX
+```
+
+**Where to use:**
+- Client components (default in App Router)
+- Server components (also compiled at build time)
+- Browser console and network requests
+
+**Example:**
+```typescript
+// ✓ SAFE: Public API endpoint, accessible in browser
+'use client';
+
+import { getApiBaseUrl } from '@/lib/env.client';
+
+export default function MyClientComponent() {
+  const apiUrl = getApiBaseUrl();
+  // This is fine because it's just a URL, not a secret
+  
+  const handleFetch = async () => {
+    const response = await fetch(`${apiUrl}/products`);
+    return response.json();
+  };
+
+  return <button onClick={handleFetch}>Load Products</button>;
+}
+```
+
+### The NEXT_PUBLIC_ Prefix Explained
+
+Next.js replaces all `NEXT_PUBLIC_` variables with their values at **build time**. This means:
+- ✓ `NEXT_PUBLIC_API_BASE_URL` → Replaced with `http://localhost:3000/api` in the bundle
+- ✗ `DATABASE_URL` → Not included in the bundle (server-only)
+
+**Security Rule:**
+> Never prefix sensitive data with `NEXT_PUBLIC_`. If it starts with `NEXT_PUBLIC_`, assume it will be visible to the browser.
+
+### Getting Started with Environment Variables
+
+1. **Copy the template:**
+   ```bash
+   cp .env.example .env.local
+   ```
+
+2. **Fill in your local values:**
+   ```env
+   # .env.local
+   DATABASE_URL=postgresql://user:password@localhost:5432/mydb
+   NEXT_PUBLIC_API_BASE_URL=http://localhost:3000/api
+   ```
+
+3. **Access in code:**
+   ```typescript
+   // Server-side
+   const dbUrl = process.env.DATABASE_URL;
+
+   // Client-side (only NEXT_PUBLIC_ variables)
+   const apiUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
+   ```
+
+4. **Restart the dev server** after adding new environment variables:
+   ```bash
+   npm run dev
+   ```
+
+### File Structure for Environment Management
+
+```
+project-root/
+├── .env.example          # ✓ Committed: Template with placeholders
+├── .env.local            # ✗ Not committed: Local development secrets
+├── .env.staging          # ✗ Not committed: Staging environment config
+├── .env.production       # ✗ Not committed: Production config
+├── .gitignore            # Contains: .env* and !.env.example
+└── src/lib/
+    ├── env.server.ts     # Server-side variable utilities
+    └── env.client.ts     # Client-side variable utilities
+```
+
+### Common Pitfalls Avoided
+
+#### 1. Exposing Server Secrets to the Browser
+```typescript
+// ✗ WRONG: Using server secret in client component
+'use client';
+const apiKey = process.env.API_SECRET; // undefined in browser!
+
+// ✓ CORRECT: Use server-only in API route
+// src/app/api/example/route.ts
+export async function POST(request: Request) {
+  const apiKey = process.env.API_SECRET; // Safe on server
+  // ... use apiKey ...
+}
+```
+
+#### 2. Forgetting NEXT_PUBLIC_ Prefix
+```typescript
+// ✗ WRONG: Client won't have access
+const apiUrl = process.env.API_BASE_URL; // undefined
+
+// ✓ CORRECT: Add prefix
+const apiUrl = process.env.NEXT_PUBLIC_API_BASE_URL; // works
+```
+
+#### 3. Using Environment Variables Conditionally
+```typescript
+// ✗ WRONG: Dynamic access doesn't work with build-time replacement
+const key = isDev ? 'DEV_KEY' : 'PROD_KEY';
+const value = process.env[key]; // undefined!
+
+// ✓ CORRECT: Static access
+const value = isDev 
+  ? process.env.NEXT_PUBLIC_DEV_KEY 
+  : process.env.NEXT_PUBLIC_PROD_KEY;
+```
+
+#### 4. Assuming .env.local Persists After Rebuild
+Environment variables are loaded once at startup. After changing `.env.local`:
+1. Restart the development server
+2. Changes apply to new code, but existing in-memory values don't update
+3. Browser must reload to see new `NEXT_PUBLIC_` values
+
+### Deployment Considerations
+
+**For production deployment:**
+1. Set environment variables in your hosting platform (Vercel, Netlify, AWS, etc.)
+2. Do NOT commit `.env.local` or `.env.production` to version control
+3. Use `.env.example` to document required variables for your team
+4. Add validation at startup to catch missing variables early
+
+**Example Validation (in `src/app/layout.tsx`):**
+```typescript
+import { validateServerEnv } from '@/lib/env.server';
+
+// This runs once when the server starts
+if (typeof window === 'undefined') {
+  validateServerEnv();
+}
+```
+
