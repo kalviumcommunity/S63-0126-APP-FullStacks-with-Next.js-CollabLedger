@@ -1,21 +1,20 @@
 // src/lib/prisma.ts
 
 /**
- * Placeholder for Prisma Client.
- * In a future sprint, this will be used to initialize the Prisma Client
- * to interact with the database.
+ * Prisma Client singleton for Next.js App Router.
+ * Prevents exhausting database connections during hot reloads.
  */
 
-// import { PrismaClient } from "@prisma/client";
+import { PrismaClient } from "@prisma/client";
 
-// const globalForPrisma = global as unknown as { prisma: PrismaClient };
+const globalForPrisma = global as unknown as { prisma?: PrismaClient };
 
-// export const prisma =
-//   globalForPrisma.prisma ||
-//   new PrismaClient({
-//     log: ["query"],
-//   });
+export const prisma =
+  globalForPrisma.prisma ||
+  new PrismaClient({
+    log: ["query", "error", "warn"],
+  });
 
-// if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
-
-export const prismaPlaceholder = {};
+if (process.env.NODE_ENV !== "production") {
+  globalForPrisma.prisma = prisma;
+}
