@@ -374,6 +374,54 @@ if (typeof window === 'undefined') {
 
 ## Team Branching & PR Workflow
 
+## Database Migrations & Seed Scripts
+
+This project uses Prisma to manage the database schema and initial test data. Prisma migrations provide a repeatable, reviewable history of schema changes and allow the team to apply the same changes across environments.
+
+- **Why use Prisma migrations:**
+   - They produce SQL migrations that are source-controlled, reviewable in PRs, and can be applied consistently in CI/staging/production.
+   - Migrations keep schema changes explicit and reversible during development workflows.
+
+- **Run migrations (development):**
+
+```bash
+# create a migration from `schema.prisma` and apply it to your dev DB
+npx prisma migrate dev --name descriptive_name
+```
+
+- **Reset local database (destructive — use only in dev):**
+
+```bash
+# drops local data, reapplies migrations, and runs the seed script
+npx prisma migrate reset --force
+```
+
+- **Seed script:**
+   - The seed script lives at `prisma/seed.ts` and uses `prisma.user.upsert(...)` to insert or update initial records. Because it uses `upsert` keyed on unique fields (e.g. `email`), running the seed repeatedly is safe (idempotent) and won't create duplicate rows.
+   - Run the seed via the Prisma-configured command:
+
+```bash
+npx prisma db seed
+```
+
+   - Or run directly (the project uses an ESM-friendly loader):
+
+```bash
+node --loader ts-node/esm prisma/seed.ts
+```
+
+- **How environment variables are used securely:**
+   - The database connection string is read from `DATABASE_URL` in the environment (see `.env.example`).
+   - Keep `.env.local` and other environment files out of version control. Only commit `.env.example` with placeholders so teammates know which variables to provide.
+
+- **Production safety & team workflow:**
+   - Commit generated migration files under `prisma/migrations/` so reviewers can inspect SQL before applying to staging/production.
+   - Apply migrations to a staging environment before production. Test migrations against a recent production snapshot when possible.
+   - Avoid running destructive commands (e.g., `prisma migrate reset`) against production. Use backups and CI-run, audited deployment steps for production schema changes.
+   - The idempotent seed helps developers get a consistent local environment without polluting data in shared environments.
+
+If you'd like, add a small CI step that runs `npx prisma migrate deploy` against a staging database as part of release validation.
+
 This section documents the professional GitHub workflow used by the CollabLedger team to ensure high code quality, smooth collaboration, and scalable development practices.
 
 ### Branch Naming Conventions
