@@ -4,7 +4,7 @@ export const revalidate = false;
 
 export default function AboutPage() {
   return (
-    <main className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-8">
+    <main className="min-h-screen bg-linear-to-br from-blue-50 to-indigo-100 p-8">
       <div className="max-w-2xl mx-auto">
         <h1 className="text-4xl font-bold text-indigo-900 mb-6">About - Static Site Generation (SSG)</h1>
         
