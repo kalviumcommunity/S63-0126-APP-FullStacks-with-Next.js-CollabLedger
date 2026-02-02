@@ -39,7 +39,7 @@ export default async function ProductsPage() {
   const generatedAt = new Date().toISOString();
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-100 p-8">
+    <main className="min-h-screen bg-linear-to-br from-purple-50 to-pink-100 p-8">
       <div className="max-w-5xl mx-auto">
         <h1 className="text-4xl font-bold text-purple-900 mb-6">Products - Incremental Static Regeneration (ISR)</h1>
         
@@ -66,7 +66,7 @@ export default async function ProductsPage() {
         </div>
 
         <div className="mb-6">
-          <div className="bg-gradient-to-r from-purple-100 to-pink-100 rounded-lg p-4 mb-6">
+          <div className="bg-linear-to-r from-purple-100 to-pink-100 rounded-lg p-4 mb-6">
             <p className="text-purple-900 font-semibold mb-2">Cache Status:</p>
             <p className="text-purple-800 mb-2">
               ⏱️ This page revalidates every <strong>60 seconds</strong>

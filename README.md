@@ -363,6 +363,323 @@ By using UUIDs and a normalized 3NF structure, we have built a foundation where 
 - **Viewing a project's task pipeline**: The indexing of `Task.projectId` allows us to fetch all tasks for a dashboard view almost instantly.
 - **NGO Dashboard**: Fetching projects owned by a specific user is optimized by the `ownerId` index.
 
+## API Route Structure & Naming
+
+### Overview
+The CollabLedger API follows REST (Representational State Transfer) principles using Next.js App Router file-based routing. All endpoints are organized by resource (nouns, plural, lowercase) to ensure predictability and maintainability. This approach makes the API intuitive for frontend teams and reduces the learning curve during onboarding.
+
+### API Route Hierarchy
+
+```
+app/api/
+├── auth/
+│   ├── login/route.ts           # POST - User login
+│   ├── signup/route.ts          # POST - User registration
+├── users/
+│   ├── route.ts                 # GET - List all users (paginated)
+│   └── [id]/route.ts            # GET - Retrieve user by ID
+├── projects/
+│   ├── route.ts                 # GET - List projects, POST - Create project
+│   ├── [id]/route.ts            # GET/PATCH/DELETE - Manage specific project
+│   └── [id]/tasks/route.ts      # GET - Retrieve tasks for a project
+└── tasks/
+    ├── route.ts                 # POST - Create task
+    └── [id]/route.ts            # PATCH/DELETE - Manage specific task
+```
+
+### API Endpoints Reference Table
+
+| Route | Method | Purpose | Status Code | Response Structure |
+|-------|--------|---------|-------------|-------------------|
+| `/api/auth/login` | POST | Authenticate user by email | 200 / 404 / 500 | `{ success, data or error }` |
+| `/api/auth/signup` | POST | Register new user | 201 / 400 / 500 | `{ success, data or error }` |
+| `/api/users` | GET | Fetch all users (paginated) | 200 / 400 / 500 | `{ success, data, pagination }` |
+| `/api/users/[id]` | GET | Fetch user by ID | 200 / 404 / 500 | `{ success, data or error }` |
+| `/api/projects` | GET | Fetch all projects (paginated) | 200 / 400 / 500 | `{ success, data, pagination }` |
+| `/api/projects` | POST | Create new project | 201 / 400 / 404 / 500 | `{ success, data or error }` |
+| `/api/projects/[id]` | GET | Fetch project by ID | 200 / 404 / 500 | `{ success, data or error }` |
+| `/api/projects/[id]` | PATCH | Update project fields | 200 / 400 / 404 / 500 | `{ success, data or error }` |
+| `/api/projects/[id]` | DELETE | Delete project (cascades to tasks) | 200 / 404 / 500 | `{ success, data or error }` |
+| `/api/projects/[id]/tasks` | GET | Fetch tasks for project (paginated) | 200 / 400 / 404 / 500 | `{ success, data, pagination }` |
+| `/api/tasks` | POST | Create task under a project | 201 / 400 / 404 / 500 | `{ success, data or error }` |
+| `/api/tasks/[id]` | PATCH | Update task fields | 200 / 400 / 404 / 500 | `{ success, data or error }` |
+| `/api/tasks/[id]` | DELETE | Delete task | 200 / 404 / 500 | `{ success, data or error }` |
+
+### Response Format Consistency
+
+All endpoints follow a unified JSON response structure:
+
+**Success Response (2xx):**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "uuid",
+    "email": "user@example.com",
+    "name": "John Doe",
+    "createdAt": "2026-02-02T10:00:00Z",
+    "updatedAt": "2026-02-02T10:00:00Z"
+  }
+}
+```
+
+**Error Response (4xx / 5xx):**
+```json
+{
+  "success": false,
+  "error": "Meaningful error message"
+}
+```
+
+**List Response with Pagination:**
+```json
+{
+  "success": true,
+  "data": [
+    { "id": "...", "title": "Project 1", "status": "IN_PROGRESS" },
+    { "id": "...", "title": "Project 2", "status": "IDEA" }
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 10,
+    "total": 25,
+    "pages": 3
+  }
+}
+```
+
+### HTTP Status Codes
+
+| Code | Meaning | Use Case |
+|------|---------|----------|
+| 200 | OK | Successful GET, PATCH, DELETE |
+| 201 | Created | Successful POST (resource created) |
+| 400 | Bad Request | Invalid input, missing required fields |
+| 404 | Not Found | Resource doesn't exist |
+| 500 | Internal Server Error | Unexpected server error |
+
+### Pagination & Query Parameters
+
+List endpoints (`GET /api/projects`, `GET /api/users`, `GET /api/projects/[id]/tasks`) support pagination:
+
+**Query Parameters:**
+- `page` (integer, default: 1) – The page number to retrieve
+- `limit` (integer, default: 10, max: 100) – Number of records per page
+
+**Example Request:**
+```bash
+GET /api/projects?page=2&limit=20
+```
+
+**Pagination Metadata:**
+The response includes metadata to help frontend pagination:
+```json
+{
+  "pagination": {
+    "page": 2,
+    "limit": 20,
+    "total": 47,
+    "pages": 3
+  }
+}
+```
+
+### Error Handling
+
+All endpoints implement consistent error handling:
+
+1. **Input Validation**: Missing or invalid fields return `400 Bad Request`
+2. **Resource Not Found**: Non-existent IDs return `404 Not Found`
+3. **Unexpected Errors**: Server-side errors return `500 Internal Server Error` with a generic message (stack traces are **never** exposed)
+4. **No Data Leakage**: Errors never reveal database structure, raw queries, or sensitive information
+
+### Sample cURL Requests & Responses
+
+#### 1. Signup a New User
+```bash
+curl -X POST http://localhost:3000/api/auth/signup \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "john@example.com",
+    "name": "John Doe"
+  }'
+```
+
+**Success Response (201):**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "user-uuid-123",
+    "email": "john@example.com",
+    "name": "John Doe",
+    "createdAt": "2026-02-02T10:30:00Z",
+    "updatedAt": "2026-02-02T10:30:00Z"
+  }
+}
+```
+
+#### 2. Login a User
+```bash
+curl -X POST http://localhost:3000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{ "email": "john@example.com" }'
+```
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "user-uuid-123",
+    "email": "john@example.com",
+    "name": "John Doe",
+    "createdAt": "2026-02-02T10:30:00Z",
+    "updatedAt": "2026-02-02T10:30:00Z"
+  }
+}
+```
+
+#### 3. Create a Project
+```bash
+curl -X POST http://localhost:3000/api/projects \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "Water Quality Monitor",
+    "description": "Real-time water quality monitoring for NGOs",
+    "ownerId": "user-uuid-123"
+  }'
+```
+
+**Success Response (201):**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "project-uuid-456",
+    "title": "Water Quality Monitor",
+    "description": "Real-time water quality monitoring for NGOs",
+    "status": "IDEA",
+    "ownerId": "user-uuid-123",
+    "createdAt": "2026-02-02T11:00:00Z",
+    "updatedAt": "2026-02-02T11:00:00Z"
+  }
+}
+```
+
+#### 4. List Projects with Pagination
+```bash
+curl http://localhost:3000/api/projects?page=1&limit=10
+```
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "project-uuid-456",
+      "title": "Water Quality Monitor",
+      "description": "Real-time water quality monitoring for NGOs",
+      "status": "IDEA",
+      "ownerId": "user-uuid-123",
+      "createdAt": "2026-02-02T11:00:00Z",
+      "updatedAt": "2026-02-02T11:00:00Z"
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 10,
+    "total": 1,
+    "pages": 1
+  }
+}
+```
+
+#### 5. Update Project Status
+```bash
+curl -X PATCH http://localhost:3000/api/projects/project-uuid-456 \
+  -H "Content-Type: application/json" \
+  -d '{ "status": "IN_PROGRESS" }'
+```
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "project-uuid-456",
+    "title": "Water Quality Monitor",
+    "description": "Real-time water quality monitoring for NGOs",
+    "status": "IN_PROGRESS",
+    "ownerId": "user-uuid-123",
+    "createdAt": "2026-02-02T11:00:00Z",
+    "updatedAt": "2026-02-02T11:15:00Z"
+  }
+}
+```
+
+#### 6. Create Task for Project
+```bash
+curl -X POST http://localhost:3000/api/tasks \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "Set up hardware sensors",
+    "description": "Install water quality sensors in target locations",
+    "projectId": "project-uuid-456"
+  }'
+```
+
+**Success Response (201):**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "task-uuid-789",
+    "title": "Set up hardware sensors",
+    "description": "Install water quality sensors in target locations",
+    "status": "TODO",
+    "projectId": "project-uuid-456",
+    "createdAt": "2026-02-02T11:30:00Z",
+    "updatedAt": "2026-02-02T11:30:00Z"
+  }
+}
+```
+
+#### 7. Error Example: Invalid Status
+```bash
+curl -X PATCH http://localhost:3000/api/projects/project-uuid-456 \
+  -H "Content-Type: application/json" \
+  -d '{ "status": "INVALID_STATUS" }'
+```
+
+**Error Response (400):**
+```json
+{
+  "success": false,
+  "error": "Invalid status value"
+}
+```
+
+### Reflection: Why Consistent Naming Matters
+
+#### Predictability Reduces Onboarding Time
+A frontend developer joining the team can immediately understand the API structure without needing extensive documentation. By following REST conventions (resources as nouns, plural, lowercase), developers can confidently guess endpoints they haven't seen before. For example, if they know `/api/projects` exists, they can reasonably assume `/api/projects/[id]` also exists for individual project operations.
+
+#### Consistency Prevents Bugs
+When the API follows predictable patterns, developers make fewer mistakes. By using standard HTTP methods (GET, POST, PATCH, DELETE) consistently, developers don't have to remember custom conventions. A unified response format ensures that frontend code can handle all responses with the same parsing logic, reducing context-switching errors and edge case handling.
+
+#### Scalability Without Refactoring
+As CollabLedger grows and new features are added (like comments, notifications, or collaboration), developers can extend the API in a predictable way:
+- `/api/comments` for comment CRUD operations
+- `/api/projects/[id]/comments` for project-specific comments
+- `/api/notifications` for user notifications
+
+The established patterns mean these additions won't feel out of place or require developers to learn new conventions, maintaining team velocity even as the API grows.
+
+#### RESTful Design Reduces Cognitive Load
+When endpoints follow REST conventions, developers don't need to memorize arbitrary URL structures or query parameter names. Every collection endpoint can be paginated with `?page=X&limit=Y`, every resource has a predictable URL structure, and HTTP methods have well-understood semantics. This clarity translates to fewer bugs and faster feature development.
+
 ## Local Running App Screenshot
 ![Local App Screenshot](./public/sprint1-localhost.png)
 
