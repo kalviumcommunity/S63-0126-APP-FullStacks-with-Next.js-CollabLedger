@@ -811,3 +811,104 @@ In a future version of CollabLedger, we would:
 1. **Infrastructure as Code (IaC)**: Use Terraform to automate the creation of AWS resources.
 2. **Zero-Downtime Deployment**: Use blue-green deployments to ensure users never experience an outage during updates.
 3. **Automated Migrations**: Integrate Prisma database migrations into the CI/CD pipeline so the database schema always matches the code.
+
+---
+
+## Global API Response Handler
+
+### Overview
+
+The Global API Response Handler ensures **all API responses** follow a **unified, predictable format**, improving developer experience, simplifying debugging, and enabling better observability.
+
+### Unified Response Format
+
+#### Success Response (200, 201)
+```json
+{
+  "success": true,
+  "message": "Request successful",
+  "data": {},
+  "timestamp": "2026-02-02T10:30:45.123Z"
+}
+```
+
+#### Error Response (400, 404, 500)
+```json
+{
+  "success": false,
+  "message": "Error message",
+  "error": {
+    "code": "ERROR_CODE_IDENTIFIER"
+  },
+  "timestamp": "2026-02-02T10:30:45.123Z"
+}
+```
+
+### Implementation
+
+**Core Files:**
+- `src/lib/responseHandler.ts` - Exports `sendSuccess()` and `sendError()` functions
+- `src/lib/errorCodes.ts` - Centralized error code definitions (17+ codes)
+
+**Usage in Routes:**
+
+```typescript
+// src/app/api/projects/route.ts
+import { sendSuccess, sendError } from '@/lib/responseHandler';
+import { ERROR_CODES } from '@/lib/errorCodes';
+
+export async function GET(req: NextRequest) {
+  try {
+    const projects = await prisma.project.findMany();
+    return sendSuccess(
+      { projects, pagination: {...} },
+      'Projects retrieved successfully',
+      200
+    );
+  } catch (error) {
+    return sendError(
+      'Failed to retrieve projects',
+      ERROR_CODES.DATABASE_ERROR,
+      500
+    );
+  }
+}
+```
+
+### Applied Routes
+
+All routes using the Global API Response Handler:
+- ✅ `GET/POST /api/projects` - List and create projects
+- ✅ `POST /api/tasks` - Create tasks
+- ✅ Consistent error handling with 400, 404, 500 status codes
+- ✅ Machine-readable error codes for client-side error handling
+
+### Error Codes
+
+Standardized error codes for consistent error handling:
+- **Validation (4xx)**: `VALIDATION_ERROR`, `INVALID_PAGINATION`, `INVALID_INPUT`, `MISSING_FIELD`
+- **Not Found (4xx)**: `NOT_FOUND`, `PROJECT_NOT_FOUND`, `TASK_NOT_FOUND`, `USER_NOT_FOUND`
+- **Database (5xx)**: `DATABASE_ERROR`, `DATABASE_OPERATION_FAILED`
+- **Server (5xx)**: `INTERNAL_ERROR`, `INTERNAL_SERVER_ERROR`, `UNKNOWN_ERROR`
+
+### Developer Experience Benefits
+
+✅ **Consistency**: Every endpoint returns the same response shape
+✅ **Less Boilerplate**: `sendSuccess(data)` instead of manual `NextResponse.json(...)`
+✅ **Type Safety**: Full TypeScript support with generics
+✅ **Easy Error Handling**: Clients use error codes programmatically
+✅ **Automatic Timestamps**: ISO 8601 format for all responses
+
+### Observability Benefits
+
+✅ **Machine-Readable Error Codes**: Easy to aggregate and monitor errors
+✅ **Timestamps**: Every response is timestamped for correlation and debugging
+✅ **Security**: No sensitive details (stack traces, SQL) exposed to clients
+✅ **Structured Logging**: Consistent format for monitoring tools (Sentry, Datadog, etc.)
+✅ **Semantic Status Codes**: 400/404/500 indicate error type for automatic handling
+
+### Documentation
+
+For comprehensive implementation details, examples, and reflection on DX and observability, see:
+- **[GLOBAL_API_RESPONSE_HANDLER.md](GLOBAL_API_RESPONSE_HANDLER.md)** - 470+ lines of detailed documentation
+- **[IMPLEMENTATION_SUMMARY.md](IMPLEMENTATION_SUMMARY.md)** - Verification checklist and examples
