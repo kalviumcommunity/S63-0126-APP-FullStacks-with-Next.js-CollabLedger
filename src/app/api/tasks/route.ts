@@ -1,5 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { sendSuccess, sendError } from '@/lib/responseHandler';
+import { ERROR_CODES } from '@/lib/errorCodes';
 
 export async function POST(req: NextRequest) {
   try {
@@ -8,23 +10,26 @@ export async function POST(req: NextRequest) {
 
     // Validate required fields
     if (!title || typeof title !== 'string') {
-      return NextResponse.json(
-        { success: false, error: 'Title is required and must be a string' },
-        { status: 400 }
+      return sendError(
+        'Title is required and must be a string',
+        ERROR_CODES.INVALID_INPUT,
+        400
       );
     }
 
     if (!projectId || typeof projectId !== 'string') {
-      return NextResponse.json(
-        { success: false, error: 'ProjectId is required and must be a string' },
-        { status: 400 }
+      return sendError(
+        'ProjectId is required and must be a string',
+        ERROR_CODES.INVALID_INPUT,
+        400
       );
     }
 
     if (description !== undefined && description !== null && typeof description !== 'string') {
-      return NextResponse.json(
-        { success: false, error: 'Description must be a string' },
-        { status: 400 }
+      return sendError(
+        'Description must be a string',
+        ERROR_CODES.INVALID_INPUT,
+        400
       );
     }
 
@@ -34,9 +39,10 @@ export async function POST(req: NextRequest) {
     });
 
     if (!project) {
-      return NextResponse.json(
-        { success: false, error: 'Project not found' },
-        { status: 404 }
+      return sendError(
+        'Project not found',
+        ERROR_CODES.PROJECT_NOT_FOUND,
+        404
       );
     }
 
@@ -58,15 +64,17 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    return NextResponse.json(
-      { success: true, data: newTask },
-      { status: 201 }
+    return sendSuccess(
+      newTask,
+      'Task created successfully',
+      201
     );
   } catch (error) {
     console.error('Create task error:', error);
-    return NextResponse.json(
-      { success: false, error: 'Internal server error' },
-      { status: 500 }
+    return sendError(
+      'Failed to create task',
+      ERROR_CODES.DATABASE_ERROR,
+      500
     );
   }
 }
