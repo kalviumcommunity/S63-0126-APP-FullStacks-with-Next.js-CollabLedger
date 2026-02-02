@@ -1,5 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { sendSuccess, sendError } from '@/lib/responseHandler';
+import { ERROR_CODES } from '@/lib/errorCodes';
 
 export async function GET(req: NextRequest) {
   try {
@@ -9,9 +11,10 @@ export async function GET(req: NextRequest) {
 
     // Validate pagination params
     if (page < 1 || limit < 1 || limit > 100) {
-      return NextResponse.json(
-        { success: false, error: 'Invalid pagination parameters' },
-        { status: 400 }
+      return sendError(
+        'Invalid pagination parameters. Page and limit must be positive, limit must not exceed 100.',
+        ERROR_CODES.INVALID_PAGINATION,
+        400
       );
     }
 
@@ -36,10 +39,9 @@ export async function GET(req: NextRequest) {
       orderBy: { createdAt: 'desc' },
     });
 
-    return NextResponse.json(
+    return sendSuccess(
       {
-        success: true,
-        data: projects,
+        projects,
         pagination: {
           page,
           limit,
@@ -47,13 +49,15 @@ export async function GET(req: NextRequest) {
           pages: Math.ceil(total / limit),
         },
       },
-      { status: 200 }
+      'Projects retrieved successfully',
+      200
     );
   } catch (error) {
     console.error('Get projects error:', error);
-    return NextResponse.json(
-      { success: false, error: 'Internal server error' },
-      { status: 500 }
+    return sendError(
+      'Failed to retrieve projects',
+      ERROR_CODES.DATABASE_ERROR,
+      500
     );
   }
 }
@@ -65,23 +69,26 @@ export async function POST(req: NextRequest) {
 
     // Validate required fields
     if (!title || typeof title !== 'string') {
-      return NextResponse.json(
-        { success: false, error: 'Title is required and must be a string' },
-        { status: 400 }
+      return sendError(
+        'Title is required and must be a string',
+        ERROR_CODES.INVALID_INPUT,
+        400
       );
     }
 
     if (!description || typeof description !== 'string') {
-      return NextResponse.json(
-        { success: false, error: 'Description is required and must be a string' },
-        { status: 400 }
+      return sendError(
+        'Description is required and must be a string',
+        ERROR_CODES.INVALID_INPUT,
+        400
       );
     }
 
     if (!ownerId || typeof ownerId !== 'string') {
-      return NextResponse.json(
-        { success: false, error: 'OwnerId is required and must be a string' },
-        { status: 400 }
+      return sendError(
+        'OwnerId is required and must be a string',
+        ERROR_CODES.INVALID_INPUT,
+        400
       );
     }
 
@@ -91,9 +98,10 @@ export async function POST(req: NextRequest) {
     });
 
     if (!owner) {
-      return NextResponse.json(
-        { success: false, error: 'Owner not found' },
-        { status: 404 }
+      return sendError(
+        'Owner not found',
+        ERROR_CODES.USER_NOT_FOUND,
+        404
       );
     }
 
@@ -115,15 +123,17 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    return NextResponse.json(
-      { success: true, data: newProject },
-      { status: 201 }
+    return sendSuccess(
+      newProject,
+      'Project created successfully',
+      201
     );
   } catch (error) {
     console.error('Create project error:', error);
-    return NextResponse.json(
-      { success: false, error: 'Internal server error' },
-      { status: 500 }
+    return sendError(
+      'Failed to create project',
+      ERROR_CODES.DATABASE_ERROR,
+      500
     );
   }
 }
