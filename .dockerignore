@@ -1,0 +1,41 @@
+# Git and version control
+.git
+.gitignore
+.gitattributes
+
+# Dependencies and build outputs
+node_modules
+npm-debug.log
+yarn-error.log
+.next
+.turbo
+dist
+build
+
+# IDE and editor files
+.vscode
+.idea
+*.swp
+*.swo
+*.swn
+*.iml
+.DS_Store
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Docker and CI/CD
+docker-compose.yml
+Dockerfile
+.dockerignore
+.github
+.gitlab-ci.yml
+
+# Project-specific
+.prisma
+prisma/migrations
+README.md
+PRISMA.md
+LICENSE
