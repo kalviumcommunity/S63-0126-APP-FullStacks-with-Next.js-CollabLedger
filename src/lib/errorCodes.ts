@@ -1,0 +1,30 @@
+/**
+ * Standard Error Codes for API Responses
+ * Used to provide consistent, machine-readable error identification
+ */
+
+export const ERROR_CODES = {
+  // Validation Errors (4xx)
+  VALIDATION_ERROR: 'VALIDATION_ERROR',
+  INVALID_PAGINATION: 'INVALID_PAGINATION',
+  INVALID_INPUT: 'INVALID_INPUT',
+  MISSING_FIELD: 'MISSING_FIELD',
+
+  // Resource Not Found (4xx)
+  NOT_FOUND: 'NOT_FOUND',
+  RESOURCE_NOT_FOUND: 'RESOURCE_NOT_FOUND',
+  PROJECT_NOT_FOUND: 'PROJECT_NOT_FOUND',
+  TASK_NOT_FOUND: 'TASK_NOT_FOUND',
+  USER_NOT_FOUND: 'USER_NOT_FOUND',
+
+  // Database Errors (5xx)
+  DATABASE_ERROR: 'DATABASE_ERROR',
+  DATABASE_OPERATION_FAILED: 'DATABASE_OPERATION_FAILED',
+
+  // Server Errors (5xx)
+  INTERNAL_ERROR: 'INTERNAL_ERROR',
+  INTERNAL_SERVER_ERROR: 'INTERNAL_SERVER_ERROR',
+  UNKNOWN_ERROR: 'UNKNOWN_ERROR',
+} as const;
+
+export type ErrorCode = typeof ERROR_CODES[keyof typeof ERROR_CODES];

@@ -33,7 +33,7 @@ export default async function DashboardPage() {
   const fetchTime = new Date().toLocaleTimeString();
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 p-8">
+    <main className="min-h-screen bg-linear-to-br from-green-50 to-emerald-100 p-8">
       <div className="max-w-4xl mx-auto">
         <h1 className="text-4xl font-bold text-emerald-900 mb-6">Dashboard - Server-Side Rendering (SSR)</h1>
         
