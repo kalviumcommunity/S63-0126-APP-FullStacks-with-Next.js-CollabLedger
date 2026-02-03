@@ -494,3 +494,66 @@ In a future version of CollabLedger, we would:
 1. **Infrastructure as Code (IaC)**: Use Terraform to automate the creation of AWS resources.
 2. **Zero-Downtime Deployment**: Use blue-green deployments to ensure users never experience an outage during updates.
 3. **Automated Migrations**: Integrate Prisma database migrations into the CI/CD pipeline so the database schema always matches the code.
+
+---
+
+**Authentication APIs**
+
+This repository now includes secure authentication APIs implemented with the Next.js App Router, Prisma (PostgreSQL), bcrypt, and JSON Web Tokens (JWT). The following summarizes what was added, why, and how to test locally.
+
+- **Files added / updated**
+   - Signup: [app/api/auth/signup/route.ts](app/api/auth/signup/route.ts)
+   - Login: [app/api/auth/login/route.ts](app/api/auth/login/route.ts)
+   - Protected users endpoint: [app/api/users/route.ts](app/api/users/route.ts)
+   - Prisma schema updated: `prisma/schema.prisma` (added optional `password` field)
+   - DB helper script: [scripts/add-password-column.mjs](scripts/add-password-column.mjs)
+   - Smoke tests: [scripts/smoke-test.mjs](scripts/smoke-test.mjs)
+
+- **Behavior & security**
+   - Passwords are hashed with bcrypt (10 rounds). Plain-text passwords are never stored.
+   - JWTs are signed using `JWT_SECRET` from the environment and expire in 1 hour. The JWT payload includes `id` and `email` only.
+   - The protected endpoint requires `Authorization: Bearer <token>` and returns decoded user data when valid.
+
+- **One-off DB step taken**
+   - To avoid destructive automated schema changes on an existing database, a nullable `password` column was added via `scripts/add-password-column.mjs`. If you prefer migrations, seed or set passwords for existing users first, then make `password` required and create a migration.
+
+- **Commands — development & tests**
+
+   1) Kill stale Next dev and start dev server (Windows cmd):
+
+   ```bash
+   taskkill /PID 4780 /F
+   del .next\dev\lock
+   set "JWT_SECRET=your_secret_here" && npm run dev
+   ```
+
+   2) Start dev server (POSIX):
+
+   ```bash
+   JWT_SECRET=your_secret_here npm run dev
+   ```
+
+   3) Run smoke tests (in a separate terminal while dev server runs):
+
+   ```bash
+   node scripts/smoke-test.mjs
+   ```
+
+   4) One-off: add nullable password column (if needed):
+
+   ```bash
+   node scripts/add-password-column.mjs
+   ```
+
+   5) Typecheck & regenerate Prisma client:
+
+   ```bash
+   npx tsc --noEmit
+   npx prisma generate
+   ```
+
+- **Notes & next steps**
+   - Remove or reduce debug logging in API routes before deploying to production.
+   - To make `password` required later: run a script to set passwords for all users; then set `password String` in `schema.prisma` and create a migration.
+   - Consider adding a simple frontend page at `/signup` that POSTs to `/api/auth/signup` (a small example was provided during the session).
+
