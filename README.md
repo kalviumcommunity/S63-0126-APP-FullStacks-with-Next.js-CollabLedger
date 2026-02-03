@@ -140,6 +140,84 @@ Prisma improves reliability by enforcing schema constraints at compile time,
 reducing mismatched queries. It also accelerates development with generated
 types, which lowers the chance of runtime crashes and makes refactors safer.
 
+## Input Validation with Zod
+
+### Why Input Validation Matters
+Validating inputs prevents malformed or malicious data from reaching business
+logic and database operations. It improves reliability, security, and user
+feedback by returning clear, consistent error messages.
+
+### Why Zod?
+Zod is TypeScript-first, lightweight, and provides runtime validation with
+inferred types for compile-time safety. It fits well with Next.js App Router
+and keeps schemas reusable across server and client.
+
+### Shared Schemas (excerpt)
+```typescript
+import { z } from "zod";
+
+export const CreateUserSchema = z.object({
+  email: z.string().email("Invalid email address"),
+  name: z.string().min(2).max(100).optional(),
+});
+
+export const UpdateUserSchema = CreateUserSchema.partial().extend({
+  id: z.string().uuid("User id must be a valid UUID"),
+});
+```
+
+```typescript
+export const CreateProjectSchema = z.object({
+  title: z.string().min(3).max(120),
+  description: z.string().min(10).max(1000),
+  ownerId: z.string().uuid(),
+  status: z.enum(["IDEA", "IN_PROGRESS", "COMPLETED"]).optional(),
+});
+
+export const UpdateProjectSchema = CreateProjectSchema.partial().extend({
+  id: z.string().uuid("Project id must be a valid UUID"),
+});
+```
+
+### API Route Validation Pattern (excerpt)
+```typescript
+const result = CreateUserSchema.safeParse(body);
+if (!result.success) {
+  return validationErrorResponse(result.error);
+}
+```
+
+### Example Requests
+**Valid (POST /api/users)**
+```bash
+curl -X POST http://localhost:3000/api/users \
+  -H "Content-Type: application/json" \
+  -d '{"email":"user@example.com","name":"Asha"}'
+```
+
+**Invalid (POST /api/projects)**
+```bash
+curl -X POST http://localhost:3000/api/projects \
+  -H "Content-Type: application/json" \
+  -d '{"title":"Hi","description":"short","ownerId":"not-a-uuid"}'
+```
+
+Expected error format:
+```json
+{
+  "success": false,
+  "message": "Validation Error",
+  "errors": [
+    { "field": "title", "message": "Title must be at least 3 characters" }
+  ]
+}
+```
+
+### Reflection
+Reusing schemas (e.g., `.partial()` for PUT) improves maintainability by keeping
+validation logic centralized. The approach reduces duplication, keeps error
+responses consistent, and makes API contracts more reliable for team workflows.
+
 ## Reflection
 
 ### Why this folder structure was chosen?
