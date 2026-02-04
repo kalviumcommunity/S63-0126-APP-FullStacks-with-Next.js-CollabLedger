@@ -73,3 +73,6 @@ Protecting production data (short reflection):
 
 Local convenience (optional):
 - Add npm script `"prisma:seed": "npx prisma db seed"` if you want a shortcut.
+
+//command for seeing all users
+docker exec -i s63-0126-app-fullstacks-with-nextjs-collabledger-db-1 psql -U user -d collabledger -c "SELECT id, email, name, \"createdAt\", \"updatedAt\" FROM \"User\";"

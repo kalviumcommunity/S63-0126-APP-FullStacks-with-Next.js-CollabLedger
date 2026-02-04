@@ -1,4 +1,5 @@
-import type { Metadata } from "next";
+import type { Metadata, JSX as NextJSX } from "next";
+import React from "react";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -14,14 +15,15 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "CollabLedger | Eliminate Work Duplication",
-  description: "A platform for NGOs and open-source contributors to collaborate effectively.",
+  description:
+    "A platform for NGOs and open-source contributors to collaborate effectively.",
 };
 
 export default function RootLayout({
   children,
 }: Readonly<{
-  children: React.ReactNode;
-}>) {
+  children: React.JSX.Element | React.ReactNode;
+}>): NextJSX.Element {
   return (
     <html lang="en">
       <body

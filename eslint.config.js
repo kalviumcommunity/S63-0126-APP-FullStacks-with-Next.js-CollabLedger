@@ -1,18 +1,14 @@
-import nextPlugin from '@eslint-plugin-next';
-import prettierConfig from 'eslint-config-prettier';
+import js from "@eslint/js";
+import nextConfig from "eslint-config-next";
+import prettierConfig from "eslint-config-prettier";
 
-export default [
+const config = [
+  js.configs.recommended,
+  ...nextConfig,
   {
-    ignores: ['.next', 'node_modules', 'dist', 'build'],
+    ignores: [".next", "node_modules", "dist", "build"],
   },
-  {
-    files: ['**/*.{js,jsx,ts,tsx}'],
-    plugins: {
-      next: nextPlugin,
-    },
-    rules: {
-      ...nextPlugin.configs.recommended.rules,
-      ...prettierConfig.rules,
-    },
-  },
+  prettierConfig,
 ];
+
+export default config;

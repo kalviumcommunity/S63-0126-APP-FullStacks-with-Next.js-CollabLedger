@@ -1,22 +1,30 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { NextRequest, NextResponse } from "next/server";
+import bcrypt from "bcrypt";
+import { prisma } from "@/lib/prisma";
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { email, name } = body;
+    const { email, name, password } = body;
 
     // Validate input
-    if (!email || typeof email !== 'string') {
+    if (!email || typeof email !== "string") {
       return NextResponse.json(
-        { success: false, error: 'Email is required' },
+        { success: false, error: "Email is required" },
         { status: 400 }
       );
     }
 
-    if (name && typeof name !== 'string') {
+    if (!password || typeof password !== "string") {
       return NextResponse.json(
-        { success: false, error: 'Name must be a string' },
+        { success: false, error: "Password is required" },
+        { status: 400 }
+      );
+    }
+
+    if (name && typeof name !== "string") {
+      return NextResponse.json(
+        { success: false, error: "Name must be a string" },
         { status: 400 }
       );
     }
@@ -28,28 +36,34 @@ export async function POST(req: NextRequest) {
 
     if (existingUser) {
       return NextResponse.json(
-        { success: false, error: 'User already exists' },
+        { success: false, error: "User already exists" },
         { status: 400 }
       );
     }
 
+    const hashedPassword = await bcrypt.hash(password, 10);
+
     // Create user
-    const newUser = await prisma.user.create({
+    const newUser = await (prisma.user as any).create({
       data: {
         email,
         name: name || null,
+        password: hashedPassword,
       },
-      select: { id: true, email: true, name: true, createdAt: true, updatedAt: true },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        createdAt: true,
+        updatedAt: true,
+      },
     });
 
-    return NextResponse.json(
-      { success: true, data: newUser },
-      { status: 201 }
-    );
+    return NextResponse.json({ success: true, data: newUser }, { status: 201 });
   } catch (error) {
-    console.error('Signup error:', error);
+    console.error("Signup error:", error);
     return NextResponse.json(
-      { success: false, error: 'Internal server error' },
+      { success: false, error: "Internal server error" },
       { status: 500 }
     );
   }
