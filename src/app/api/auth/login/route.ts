@@ -1,86 +1,39 @@
-import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import bcrypt from "bcrypt";
-import { createJWT } from "@/lib/auth";
+import { NextRequest } from 'next/server';
+import { prisma } from '@/lib/prisma';
+import { sendSuccess } from '@/lib/responseHandler';
+import { handleError, handleValidationError, handleNotFound } from '@/lib/errorHandler';
+import { logger } from '@/lib/logger';
 
 export async function POST(req: NextRequest) {
+  const context = { route: '/api/auth/login', method: 'POST' };
+
   try {
     const body = await req.json();
-    const { email, password } = body;
+    const { email } = body;
 
     // Validate input
-    if (!email || typeof email !== "string") {
-      return NextResponse.json(
-        { success: false, error: "Email is required" },
-        { status: 400 }
-      );
+    if (!email || typeof email !== 'string') {
+      return handleValidationError('Email is required', context);
     }
 
-    if (!password || typeof password !== "string") {
-      return NextResponse.json(
-        { success: false, error: "Password is required" },
-        { status: 400 }
-      );
-    }
-
-    // Find user with password and role
+    // Find user
     const user = await prisma.user.findUnique({
       where: { email },
+      select: { id: true, email: true, name: true, createdAt: true, updatedAt: true },
     });
 
-    if (!user || !user.password) {
-      return NextResponse.json(
-        { success: false, error: "Invalid credentials" },
-        { status: 401 }
-      );
+    if (!user) {
+      return handleNotFound('User', { ...context, email });
     }
 
-    // Verify password
-    const isPasswordValid = await bcrypt.compare(password, user.password);
-
-    if (!isPasswordValid) {
-      return NextResponse.json(
-        { success: false, error: "Invalid credentials" },
-        { status: 401 }
-      );
-    }
-
-    // Generate JWT token using the auth utility with role
-    const token = createJWT(
-      user.id,
-      user.email,
-      user.role as "ADMIN" | "USER" | "EDITOR"
-    );
-
-    // Create response with token in cookie
-    const response = NextResponse.json(
-      {
-        success: true,
-        data: {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          role: user.role,
-          createdAt: user.createdAt,
-          updatedAt: user.updatedAt,
-        },
-      },
-      { status: 200 }
-    );
-
-    response.cookies.set("token", token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 60 * 60, // 1 hour to match JWT expiry
+    logger.info('User login successful', {
+      route: context.route,
+      userId: user.id,
+      email: user.email,
     });
 
-    return response;
+    return sendSuccess(user, 'Login successful', 200);
   } catch (error) {
-    console.error("Login error:", error);
-    return NextResponse.json(
-      { success: false, error: "Internal server error" },
-      { status: 500 }
-    );
+    return handleError(error, context);
   }
 }
