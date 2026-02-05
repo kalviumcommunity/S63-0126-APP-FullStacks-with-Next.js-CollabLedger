@@ -912,3 +912,309 @@ Standardized error codes for consistent error handling:
 For comprehensive implementation details, examples, and reflection on DX and observability, see:
 - **[GLOBAL_API_RESPONSE_HANDLER.md](GLOBAL_API_RESPONSE_HANDLER.md)** - 470+ lines of detailed documentation
 - **[IMPLEMENTATION_SUMMARY.md](IMPLEMENTATION_SUMMARY.md)** - Verification checklist and examples
+
+## Centralized Error Handling Middleware
+
+### Overview
+
+Centralized error handling is a critical component of production-ready applications. Rather than scattering try-catch logic across every API route, CollabLedger implements a unified error handling layer that:
+
+- **Detects environment** (development vs. production)
+- **Returns detailed errors with stack traces** in development for fast debugging
+- **Returns safe, minimal errors** in production to prevent information leakage
+- **Logs full error details** internally using a structured logger
+- **Maintains consistent response format** across all endpoints
+
+This approach eliminates repetitive error handling code, improves maintainability, and enhances security by preventing sensitive information from being exposed to clients.
+
+### Folder Structure Overview
+
+```
+src/lib/
+├── errorHandler.ts      # Centralized error handling logic
+├── logger.ts            # Structured JSON logging
+├── responseHandler.ts   # Unified success/error response formatting
+├── errorCodes.ts        # Standardized error code definitions
+└── prisma.ts            # Database client singleton
+```
+
+**Key Relationships:**
+- `errorHandler.ts` uses `logger.ts` to log all errors
+- `errorHandler.ts` returns `NextResponse` with consistent formatting
+- Routes import `handleError()` and `handleValidationError()` helpers
+- All errors are categorized with codes from `errorCodes.ts`
+
+### Implementation: logger.ts
+
+The structured logger ensures all error information is captured in a machine-readable JSON format suitable for log aggregation services like Datadog, Splunk, or CloudWatch.
+
+**Key Features:**
+- Logs in JSON format for easy parsing by aggregation services
+- Environment-aware: includes stack traces in development only
+- Structured context: route names, user IDs, and custom metadata
+- ISO 8601 timestamps for precise correlation
+
+**Example Development Log Output:**
+```json
+{
+  "level": "error",
+  "message": "API Error: Database operation failed",
+  "context": {
+    "route": "/api/users",
+    "method": "GET",
+    "page": 1,
+    "limit": 10
+  },
+  "timestamp": "2026-02-02T10:30:45.123Z",
+  "stack": "Error: Connection timeout\n    at Database.query (src/lib/prisma.ts:45:23)\n    ..."
+}
+```
+
+**Example Production Log Output (no stack trace):**
+```json
+{
+  "level": "error",
+  "message": "API Error: Database operation failed",
+  "context": {
+    "route": "/api/users",
+    "method": "GET"
+  },
+  "timestamp": "2026-02-02T10:30:45.123Z"
+}
+```
+
+### Implementation: errorHandler.ts
+
+The error handler provides utility functions that detect error types, map them to standard error codes, and return appropriately detailed responses based on the environment.
+
+**Core Functions:**
+- `handleError(error, context)` - Main error handler for unexpected exceptions
+- `handleValidationError(message, context)` - For input validation failures
+- `handleNotFound(resourceType, context)` - For 404 not found scenarios
+
+**Features:**
+- Automatic error type detection (Prisma, validation, generic)
+- Environment-aware response details (detailed in dev, minimal in prod)
+- Structured logging of all errors
+- Consistent error codes for client handling
+
+### Usage in API Routes
+
+**Before (Without Centralized Error Handling):**
+```typescript
+// ❌ Repetitive error handling scattered across routes
+export async function GET(req: NextRequest) {
+  try {
+    const users = await prisma.user.findMany();
+    return NextResponse.json({ success: true, data: users }, { status: 200 });
+  } catch (error) {
+    console.error('Get users error:', error);  // Inconsistent logging
+    return NextResponse.json(
+      { success: false, error: 'Internal server error' },  // Generic message
+      { status: 500 }
+    );
+  }
+}
+```
+
+**After (With Centralized Error Handling):**
+```typescript
+// ✅ Clean, consistent error handling
+import { handleError, handleValidationError } from '@/lib/errorHandler';
+import { logger } from '@/lib/logger';
+
+export async function GET(req: NextRequest) {
+  const context = { route: '/api/users', method: 'GET' };
+
+  try {
+    const users = await prisma.user.findMany();
+    logger.info('Users retrieved successfully', {
+      route: context.route,
+      totalCount: users.length,
+    });
+    return sendSuccess(users, 'Users retrieved successfully', 200);
+  } catch (error) {
+    return handleError(error, context);  // One line handles everything
+  }
+}
+```
+
+### Error Response Comparison Table
+
+| Aspect | Development | Production |
+|--------|-------------|-----------|
+| **Error Message** | Detailed (e.g., "Connection timeout at query()") | Generic (e.g., "Database operation failed") |
+| **Stack Trace** | ✅ Included in `error.details` field | ❌ Not included |
+| **Internal Context** | ✅ Logged with full error object | ✅ Logged internally only |
+| **User Sees** | Full details for debugging | Safe, minimal message |
+| **Security Risk** | None (local development only) | Prevented (no leakage) |
+| **Logging** | Full stack traces in logs | Full stack traces in logs (internal only) |
+
+### Example Error Responses
+
+**Development Response (400 - Validation Error):**
+```json
+{
+  "success": false,
+  "message": "Validation failed",
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "details": "Email is required and must be a string"
+  },
+  "timestamp": "2026-02-02T10:30:45.123Z"
+}
+```
+
+**Production Response (Same Request):**
+```json
+{
+  "success": false,
+  "message": "Validation failed",
+  "error": {
+    "code": "VALIDATION_ERROR"
+  },
+  "timestamp": "2026-02-02T10:30:45.123Z"
+}
+```
+
+**Development Response (500 - Database Error):**
+```json
+{
+  "success": false,
+  "message": "Database operation failed",
+  "error": {
+    "code": "DATABASE_ERROR",
+    "details": "PrismaClientKnownRequestError: The 'users' table does not exist."
+  },
+  "timestamp": "2026-02-02T10:30:45.123Z"
+}
+```
+
+**Production Response (Same Request):**
+```json
+{
+  "success": false,
+  "message": "Database operation failed",
+  "error": {
+    "code": "DATABASE_ERROR"
+  },
+  "timestamp": "2026-02-02T10:30:45.123Z"
+}
+```
+
+### Applied Routes (All Using Centralized Error Handling)
+
+All API routes have been updated to use the centralized error handler:
+
+- ✅ `POST /api/auth/signup` - User registration
+- ✅ `POST /api/auth/login` - User authentication
+- ✅ `GET /api/users` - List users with pagination
+- ✅ `GET /api/users/[id]` - Retrieve user by ID
+- ✅ `GET /api/projects` - List projects
+- ✅ `POST /api/projects` - Create project
+- ✅ `GET /api/projects/[id]` - Retrieve project
+- ✅ `PATCH /api/projects/[id]` - Update project
+- ✅ `DELETE /api/projects/[id]` - Delete project
+- ✅ `GET /api/projects/[id]/tasks` - List project tasks
+- ✅ `POST /api/tasks` - Create task
+- ✅ `PATCH /api/tasks/[id]` - Update task
+- ✅ `DELETE /api/tasks/[id]` - Delete task
+
+### Reflection: Benefits & Extensibility
+
+#### Debugging Benefits
+
+**Faster Root Cause Analysis:**
+With structured logging, developers can immediately identify what went wrong:
+- The `level` field (error, warn, info) indicates severity
+- The `context` field shows which route and operation failed
+- The `stack` (in development) points to the exact line of code
+- The `timestamp` allows correlation with other system events
+
+**Example Debugging Workflow:**
+1. Monitoring alert: "High error rate on /api/projects"
+2. Check logs filtered by `route: "/api/projects"`
+3. See error code: `DATABASE_ERROR`
+4. In development, check `stack` field to see exact Prisma error
+5. Fix the query and redeploy
+
+#### Security Advantages
+
+**Prevents Information Leakage:**
+- Production responses never include stack traces, database schemas, or query details
+- Stack traces only appear in internal logs, not visible to users
+- Validation errors provide guidance without exposing data model
+
+**Example:**
+- User submits invalid data
+- Production API returns: `{ success: false, message: "Validation failed", error: { code: "VALIDATION_ERROR" } }`
+- Attacker learns nothing about the application structure
+- Internal logs capture the specific validation failure for debugging
+
+#### Extensibility: Custom Error Classes
+
+This architecture supports future enhancements like custom error classes:
+
+```typescript
+// Could be added in future sprints
+class AuthenticationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'AuthenticationError';
+  }
+}
+
+// In errorHandler.ts
+function getErrorDetails(error: unknown): ErrorDetails {
+  if (error instanceof AuthenticationError) {
+    return {
+      code: ERROR_CODES.AUTHENTICATION_ERROR,
+      message: 'Authentication failed',
+      status: 401,
+    };
+  }
+  // ... rest of logic
+}
+```
+
+#### Extensibility: Context Aggregation
+
+The `LogContext` can be extended with domain-specific information:
+
+```typescript
+// Authorization errors
+handleError(error, {
+  route: '/api/admin/users',
+  userId: 'user-123',
+  requiredRole: 'admin',
+  userRole: 'user',
+});
+
+// Database performance
+handleError(error, {
+  route: '/api/projects',
+  queryDuration: 5000,  // ms
+  queryType: 'findMany',
+});
+
+// Feature flags
+handleError(error, {
+  route: '/api/experimental-feature',
+  featureFlag: 'BETA_FEATURE_X',
+  cohort: 'test-group-5',
+});
+```
+
+### Production Readiness Checklist
+
+- ✅ All API routes use `handleError()` or specific handlers
+- ✅ No raw `console.log()` calls (all use structured `logger`)
+- ✅ Consistent response format with `success` field
+- ✅ Environment detection (dev vs. prod) implemented
+- ✅ Stack traces included in dev logs only
+- ✅ Error codes standardized in `errorCodes.ts`
+- ✅ Structured JSON logging for aggregation services
+- ✅ All errors logged internally, never exposed to clients
+- ✅ Type-safe error handling with TypeScript interfaces
+- ✅ Ready for integration with monitoring (Datadog, Sentry, CloudWatch, etc.)
+

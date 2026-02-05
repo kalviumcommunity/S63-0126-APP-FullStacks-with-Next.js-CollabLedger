@@ -1,7 +1,12 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { sendSuccess } from '@/lib/responseHandler';
+import { handleError, handleValidationError } from '@/lib/errorHandler';
+import { logger } from '@/lib/logger';
 
 export async function GET(req: NextRequest) {
+  const context = { route: '/api/users', method: 'GET' };
+
   try {
     const { searchParams } = new URL(req.url);
     const page = parseInt(searchParams.get('page') || '1', 10);
@@ -9,9 +14,9 @@ export async function GET(req: NextRequest) {
 
     // Validate pagination params
     if (page < 1 || limit < 1 || limit > 100) {
-      return NextResponse.json(
-        { success: false, error: 'Invalid pagination parameters' },
-        { status: 400 }
+      return handleValidationError(
+        'Invalid pagination parameters. Page and limit must be positive, limit must not exceed 100.',
+        context
       );
     }
 
@@ -28,10 +33,16 @@ export async function GET(req: NextRequest) {
       orderBy: { createdAt: 'desc' },
     });
 
-    return NextResponse.json(
+    logger.info('Users retrieved successfully', {
+      route: context.route,
+      page,
+      limit,
+      totalCount: total,
+    });
+
+    return sendSuccess(
       {
-        success: true,
-        data: users,
+        users,
         pagination: {
           page,
           limit,
@@ -39,13 +50,10 @@ export async function GET(req: NextRequest) {
           pages: Math.ceil(total / limit),
         },
       },
-      { status: 200 }
+      'Users retrieved successfully',
+      200
     );
   } catch (error) {
-    console.error('Get users error:', error);
-    return NextResponse.json(
-      { success: false, error: 'Internal server error' },
-      { status: 500 }
-    );
+    return handleError(error, context);
   }
 }

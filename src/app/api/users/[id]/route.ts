@@ -1,19 +1,21 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { sendSuccess } from '@/lib/responseHandler';
+import { handleError, handleValidationError, handleNotFound } from '@/lib/errorHandler';
+import { logger } from '@/lib/logger';
 
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const context = { route: '/api/users/[id]', method: 'GET' };
+
   try {
     const { id } = await params;
 
     // Validate ID
     if (!id || typeof id !== 'string') {
-      return NextResponse.json(
-        { success: false, error: 'Invalid user ID' },
-        { status: 400 }
-      );
+      return handleValidationError('Invalid user ID', context);
     }
 
     // Get user
@@ -23,21 +25,16 @@ export async function GET(
     });
 
     if (!user) {
-      return NextResponse.json(
-        { success: false, error: 'User not found' },
-        { status: 404 }
-      );
+      return handleNotFound('User', { ...context, userId: id });
     }
 
-    return NextResponse.json(
-      { success: true, data: user },
-      { status: 200 }
-    );
+    logger.info('User retrieved successfully', {
+      route: context.route,
+      userId: id,
+    });
+
+    return sendSuccess(user, 'User retrieved successfully', 200);
   } catch (error) {
-    console.error('Get user error:', error);
-    return NextResponse.json(
-      { success: false, error: 'Internal server error' },
-      { status: 500 }
-    );
+    return handleError(error, context);
   }
 }

@@ -1,10 +1,15 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { sendSuccess } from '@/lib/responseHandler';
+import { handleError, handleValidationError, handleNotFound } from '@/lib/errorHandler';
+import { logger } from '@/lib/logger';
 
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const context = { route: '/api/projects/[id]/tasks', method: 'GET' };
+
   try {
     const { id } = await params;
     const { searchParams } = new URL(req.url);
@@ -13,17 +18,14 @@ export async function GET(
 
     // Validate ID
     if (!id || typeof id !== 'string') {
-      return NextResponse.json(
-        { success: false, error: 'Invalid project ID' },
-        { status: 400 }
-      );
+      return handleValidationError('Invalid project ID', { ...context, projectId: id });
     }
 
     // Validate pagination params
     if (page < 1 || limit < 1 || limit > 100) {
-      return NextResponse.json(
-        { success: false, error: 'Invalid pagination parameters' },
-        { status: 400 }
+      return handleValidationError(
+        'Invalid pagination parameters',
+        { ...context, projectId: id }
       );
     }
 
@@ -33,10 +35,7 @@ export async function GET(
     });
 
     if (!project) {
-      return NextResponse.json(
-        { success: false, error: 'Project not found' },
-        { status: 404 }
-      );
+      return handleNotFound('Project', { ...context, projectId: id });
     }
 
     const skip = (page - 1) * limit;
@@ -63,10 +62,17 @@ export async function GET(
       orderBy: { createdAt: 'desc' },
     });
 
-    return NextResponse.json(
+    logger.info('Project tasks retrieved successfully', {
+      route: context.route,
+      projectId: id,
+      page,
+      limit,
+      totalCount: total,
+    });
+
+    return sendSuccess(
       {
-        success: true,
-        data: tasks,
+        tasks,
         pagination: {
           page,
           limit,
@@ -74,13 +80,10 @@ export async function GET(
           pages: Math.ceil(total / limit),
         },
       },
-      { status: 200 }
+      'Project tasks retrieved successfully',
+      200
     );
   } catch (error) {
-    console.error('Get project tasks error:', error);
-    return NextResponse.json(
-      { success: false, error: 'Internal server error' },
-      { status: 500 }
-    );
+    return handleError(error, { ...context, projectId: req.url });
   }
 }

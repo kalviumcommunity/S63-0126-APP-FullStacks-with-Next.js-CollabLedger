@@ -44,5 +44,5 @@ export function validateServerEnv(): void {
     );
   }
 
-  console.log('✓ Server environment variables validated successfully');
+  // Server environment validation passed
 }

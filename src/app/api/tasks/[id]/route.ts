@@ -1,10 +1,15 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { sendSuccess } from '@/lib/responseHandler';
+import { handleError, handleValidationError, handleNotFound } from '@/lib/errorHandler';
+import { logger } from '@/lib/logger';
 
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const context = { route: '/api/tasks/[id]', method: 'PATCH' };
+
   try {
     const { id } = await params;
     const body = await req.json();
@@ -12,40 +17,28 @@ export async function PATCH(
 
     // Validate ID
     if (!id || typeof id !== 'string') {
-      return NextResponse.json(
-        { success: false, error: 'Invalid task ID' },
-        { status: 400 }
-      );
+      return handleValidationError('Invalid task ID', context);
     }
 
     // Validate input (at least one field must be provided)
     if (title === undefined && description === undefined && status === undefined) {
-      return NextResponse.json(
-        { success: false, error: 'At least one field is required to update' },
-        { status: 400 }
+      return handleValidationError(
+        'At least one field is required to update',
+        context
       );
     }
 
     // Validate fields if provided
     if (title !== undefined && typeof title !== 'string') {
-      return NextResponse.json(
-        { success: false, error: 'Title must be a string' },
-        { status: 400 }
-      );
+      return handleValidationError('Title must be a string', context);
     }
 
     if (description !== undefined && description !== null && typeof description !== 'string') {
-      return NextResponse.json(
-        { success: false, error: 'Description must be a string' },
-        { status: 400 }
-      );
+      return handleValidationError('Description must be a string', context);
     }
 
     if (status !== undefined && !['TODO', 'IN_PROGRESS', 'DONE'].includes(status)) {
-      return NextResponse.json(
-        { success: false, error: 'Invalid status value' },
-        { status: 400 }
-      );
+      return handleValidationError('Invalid status value', context);
     }
 
     // Check if task exists
@@ -54,10 +47,7 @@ export async function PATCH(
     });
 
     if (!existingTask) {
-      return NextResponse.json(
-        { success: false, error: 'Task not found' },
-        { status: 404 }
-      );
+      return handleNotFound('Task', { ...context, taskId: id });
     }
 
     // Update task
@@ -80,16 +70,15 @@ export async function PATCH(
       },
     });
 
-    return NextResponse.json(
-      { success: true, data: updatedTask },
-      { status: 200 }
-    );
+    logger.info('Task updated successfully', {
+      route: context.route,
+      taskId: id,
+      updatedFields: Object.keys(updateData),
+    });
+
+    return sendSuccess(updatedTask, 'Task updated successfully', 200);
   } catch (error) {
-    console.error('Update task error:', error);
-    return NextResponse.json(
-      { success: false, error: 'Internal server error' },
-      { status: 500 }
-    );
+    return handleError(error, context);
   }
 }
 
@@ -97,15 +86,14 @@ export async function DELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const context = { route: '/api/tasks/[id]', method: 'DELETE' };
+
   try {
     const { id } = await params;
 
     // Validate ID
     if (!id || typeof id !== 'string') {
-      return NextResponse.json(
-        { success: false, error: 'Invalid task ID' },
-        { status: 400 }
-      );
+      return handleValidationError('Invalid task ID', context);
     }
 
     // Check if task exists
@@ -114,10 +102,7 @@ export async function DELETE(
     });
 
     if (!existingTask) {
-      return NextResponse.json(
-        { success: false, error: 'Task not found' },
-        { status: 404 }
-      );
+      return handleNotFound('Task', { ...context, taskId: id });
     }
 
     // Delete task
@@ -125,15 +110,17 @@ export async function DELETE(
       where: { id },
     });
 
-    return NextResponse.json(
-      { success: true, data: { message: 'Task deleted successfully' } },
-      { status: 200 }
+    logger.info('Task deleted successfully', {
+      route: context.route,
+      taskId: id,
+    });
+
+    return sendSuccess(
+      { message: 'Task deleted successfully' },
+      'Task deleted successfully',
+      200
     );
   } catch (error) {
-    console.error('Delete task error:', error);
-    return NextResponse.json(
-      { success: false, error: 'Internal server error' },
-      { status: 500 }
-    );
+    return handleError(error, context);
   }
 }

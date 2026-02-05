@@ -1,17 +1,19 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { sendSuccess } from '@/lib/responseHandler';
+import { handleError, handleValidationError, handleNotFound } from '@/lib/errorHandler';
+import { logger } from '@/lib/logger';
 
 export async function POST(req: NextRequest) {
+  const context = { route: '/api/auth/login', method: 'POST' };
+
   try {
     const body = await req.json();
     const { email } = body;
 
     // Validate input
     if (!email || typeof email !== 'string') {
-      return NextResponse.json(
-        { success: false, error: 'Email is required' },
-        { status: 400 }
-      );
+      return handleValidationError('Email is required', context);
     }
 
     // Find user
@@ -21,21 +23,17 @@ export async function POST(req: NextRequest) {
     });
 
     if (!user) {
-      return NextResponse.json(
-        { success: false, error: 'User not found' },
-        { status: 404 }
-      );
+      return handleNotFound('User', { ...context, email });
     }
 
-    return NextResponse.json(
-      { success: true, data: user },
-      { status: 200 }
-    );
+    logger.info('User login successful', {
+      route: context.route,
+      userId: user.id,
+      email: user.email,
+    });
+
+    return sendSuccess(user, 'Login successful', 200);
   } catch (error) {
-    console.error('Login error:', error);
-    return NextResponse.json(
-      { success: false, error: 'Internal server error' },
-      { status: 500 }
-    );
+    return handleError(error, context);
   }
 }
