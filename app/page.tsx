@@ -1,9 +1,9 @@
-import EnvironmentBadge from '../components/EnvironmentBadge';
-import { getApiBaseUrl } from '../lib/env.client';
+import EnvironmentBadge from "../src/components/EnvironmentBadge";
+import { getApiBaseUrl } from "../src/lib/env.client";
 
 export default function Home() {
   const apiBaseUrl = getApiBaseUrl();
-  const buildEnv = process.env.NODE_ENV || 'development';
+  const buildEnv = process.env.NODE_ENV || "development";
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -72,19 +72,19 @@ export default function Home() {
         <section className="grid gap-6 md:grid-cols-3">
           {[
             {
-              title: 'Project Visibility',
+              title: "Project Visibility",
               description:
-                'See every initiative, pipeline stage, and resource in a single dashboard.',
+                "See every initiative, pipeline stage, and resource in a single dashboard.",
             },
             {
-              title: 'Contributor Matching',
+              title: "Contributor Matching",
               description:
-                'Connect open-source talent with NGO needs based on skills and impact.',
+                "Connect open-source talent with NGO needs based on skills and impact.",
             },
             {
-              title: 'Accountability',
+              title: "Accountability",
               description:
-                'Track milestones, owners, and outcomes with full transparency.',
+                "Track milestones, owners, and outcomes with full transparency.",
             },
           ].map((feature) => (
             <div
