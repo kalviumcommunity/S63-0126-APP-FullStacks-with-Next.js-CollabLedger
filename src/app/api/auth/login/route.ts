@@ -28,15 +28,7 @@ export async function POST(req: NextRequest) {
       where: { email },
     });
 
-    if (!user) {
-      return NextResponse.json(
-        { success: false, error: "Invalid credentials" },
-        { status: 401 }
-      );
-    }
-
-    // Check if password exists
-    if (!user.password) {
+    if (!user || !user.password) {
       return NextResponse.json(
         { success: false, error: "Invalid credentials" },
         { status: 401 }
