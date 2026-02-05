@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import bcrypt from "bcrypt";
 import { prisma } from "@/lib/prisma";
+import bcrypt from "bcrypt";
+import { createJWT } from "@/lib/auth";
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { email, name, password } = body;
+    const { email, name, password, role } = body;
 
     // Validate input
     if (!email || typeof email !== "string") {
@@ -22,12 +23,23 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    if (password.length < 6) {
+      return NextResponse.json(
+        { success: false, error: "Password must be at least 6 characters" },
+        { status: 400 }
+      );
+    }
+
     if (name && typeof name !== "string") {
       return NextResponse.json(
         { success: false, error: "Name must be a string" },
         { status: 400 }
       );
     }
+
+    // Validate role if provided (default to USER)
+    const validRoles = ["ADMIN", "USER", "EDITOR"];
+    const userRole = role && validRoles.includes(role) ? role : "USER";
 
     // Check if user already exists
     const existingUser = await prisma.user.findUnique({
@@ -41,6 +53,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // Create user
@@ -49,17 +62,39 @@ export async function POST(req: NextRequest) {
         email,
         name: name || null,
         password: hashedPassword,
+        role: userRole,
       },
       select: {
         id: true,
         email: true,
         name: true,
+        role: true,
         createdAt: true,
         updatedAt: true,
       },
     });
 
-    return NextResponse.json({ success: true, data: newUser }, { status: 201 });
+    // Generate JWT token using the auth utility
+    const token = createJWT(
+      newUser.id,
+      newUser.email,
+      newUser.role as "ADMIN" | "USER" | "EDITOR"
+    );
+
+    // Create response with token in cookie
+    const response = NextResponse.json(
+      { success: true, data: newUser },
+      { status: 201 }
+    );
+
+    response.cookies.set("token", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 60 * 60, // 1 hour to match JWT expiry
+    });
+
+    return response;
   } catch (error) {
     console.error("Signup error:", error);
     return NextResponse.json(
