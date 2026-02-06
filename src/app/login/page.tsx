@@ -6,6 +6,12 @@ import Link from "next/link";
 
 export default function LoginPage() {
   const router = useRouter();
+
+  // Debug log: Page Mount
+  if (typeof window !== "undefined") {
+    console.log("[LOGIN] mounted");
+  }
+
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -15,10 +21,14 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: any) => {
     e.preventDefault();
+    console.log("[LOGIN] form state before submit:", formData);
+
     setError("");
     setLoading(true);
+    console.log("[LOGIN] loading:", true);
 
     try {
+      console.log("[LOGIN] sending request to /api/auth/login");
       const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: {
@@ -28,18 +38,24 @@ export default function LoginPage() {
       });
 
       const data = await response.json();
+      console.log("[LOGIN] response status:", response.status);
+      console.log("[LOGIN] response body:", data);
 
       if (!response.ok) {
-        setError(data.error || "Login failed");
+        console.error("[LOGIN ERROR] API error:", data.message);
+        setError(data.message || "Login failed");
         return;
       }
 
       // Redirect to dashboard on success
+      console.log("[LOGIN] success, redirecting to dashboard");
       router.push("/dashboard");
-    } catch {
+    } catch (err) {
+      console.error("[LOGIN ERROR] Network/System error:", err);
       setError("An error occurred. Please try again.");
     } finally {
       setLoading(false);
+      console.log("[LOGIN] loading:", false);
     }
   };
 
@@ -80,9 +96,10 @@ export default function LoginPage() {
                 className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-white dark:bg-gray-800 rounded-t-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
                 placeholder="Email address"
                 value={formData.email}
-                onChange={(e) =>
-                  setFormData({ ...formData, email: e.target.value })
-                }
+                onChange={(e) => {
+                  console.log("[LOGIN] email updated:", e.target.value);
+                  setFormData({ ...formData, email: e.target.value });
+                }}
               />
             </div>
             <div>
@@ -98,9 +115,13 @@ export default function LoginPage() {
                 className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-white dark:bg-gray-800 rounded-b-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
                 placeholder="Password"
                 value={formData.password}
-                onChange={(e) =>
-                  setFormData({ ...formData, password: e.target.value })
-                }
+                onChange={(e) => {
+                  console.log(
+                    "[LOGIN] password updated (length):",
+                    e.target.value.length
+                  );
+                  setFormData({ ...formData, password: e.target.value });
+                }}
               />
             </div>
           </div>

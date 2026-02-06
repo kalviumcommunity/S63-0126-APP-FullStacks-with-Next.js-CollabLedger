@@ -1,4 +1,4 @@
-import type { Metadata, JSX as NextJSX } from "next";
+import type { Metadata } from "next";
 import React from "react";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
@@ -22,8 +22,8 @@ export const metadata: Metadata = {
 export default function RootLayout({
   children,
 }: Readonly<{
-  children: React.JSX.Element | React.ReactNode;
-}>): NextJSX.Element {
+  children: React.ReactNode;
+}>): React.ReactNode {
   return (
     <html lang="en">
       <body

@@ -9,7 +9,7 @@
     env_file:
       - .env
     environment:
-      - DATABASE_URL=postgresql://postgres:Aditya_DB@db:5432/collabledger_db
+      - DATABASE_URL=postgresql://user:password@db:5432/collabledger?schema=public
       - REDIS_URL=redis://redis:6379
     depends_on:
       - db
@@ -22,9 +22,9 @@
     image: postgres:15-alpine
     restart: always
     environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=Aditya_DB
-      - POSTGRES_DB=collabledger_db
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=collabledger
     ports:
       - "5432:5432"
     volumes:

@@ -6,6 +6,11 @@ import Link from "next/link";
 
 export default function SignupPage() {
   const router = useRouter();
+
+  if (typeof window !== "undefined") {
+    console.log("[SIGNUP] mounted");
+  }
+
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -17,16 +22,24 @@ export default function SignupPage() {
 
   const handleSubmit = async (e: any) => {
     e.preventDefault();
+    console.log("[SIGNUP] form state before submit:", {
+      ...formData,
+      password: "***",
+      confirmPassword: "***",
+    });
     setError("");
 
     if (formData.password !== formData.confirmPassword) {
+      console.error("[SIGNUP ERROR] Validation:", "Passwords do not match");
       setError("Passwords do not match");
       return;
     }
 
     setLoading(true);
+    console.log("[SIGNUP] loading:", true);
 
     try {
+      console.log("[SIGNUP] sending request to /api/auth/signup");
       const response = await fetch("/api/auth/signup", {
         method: "POST",
         headers: {
@@ -40,18 +53,24 @@ export default function SignupPage() {
       });
 
       const data = await response.json();
+      console.log("[SIGNUP] response status:", response.status);
+      console.log("[SIGNUP] response body:", data);
 
       if (!response.ok) {
-        setError(data.error || "Signup failed");
+        console.error("[SIGNUP ERROR] API error:", data.message);
+        setError(data.message || "Signup failed");
         return;
       }
 
       // Redirect to dashboard on success (user is automatically logged in)
+      console.log("[SIGNUP] success, redirecting to dashboard");
       router.push("/dashboard");
-    } catch {
+    } catch (err) {
+      console.error("[SIGNUP ERROR] Network error:", err);
       setError("An error occurred. Please try again.");
     } finally {
       setLoading(false);
+      console.log("[SIGNUP] loading:", false);
     }
   };
 
@@ -91,9 +110,10 @@ export default function SignupPage() {
                 className="appearance-none relative block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-white dark:bg-gray-800 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
                 placeholder="Full name"
                 value={formData.name}
-                onChange={(e) =>
-                  setFormData({ ...formData, name: e.target.value })
-                }
+                onChange={(e) => {
+                  console.log("[SIGNUP] name updated:", e.target.value);
+                  setFormData({ ...formData, name: e.target.value });
+                }}
               />
             </div>
             <div>
@@ -109,9 +129,10 @@ export default function SignupPage() {
                 className="appearance-none relative block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-white dark:bg-gray-800 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
                 placeholder="Email address"
                 value={formData.email}
-                onChange={(e) =>
-                  setFormData({ ...formData, email: e.target.value })
-                }
+                onChange={(e) => {
+                  console.log("[SIGNUP] email updated:", e.target.value);
+                  setFormData({ ...formData, email: e.target.value });
+                }}
               />
             </div>
             <div>
@@ -127,9 +148,13 @@ export default function SignupPage() {
                 className="appearance-none relative block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-white dark:bg-gray-800 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
                 placeholder="Password"
                 value={formData.password}
-                onChange={(e) =>
-                  setFormData({ ...formData, password: e.target.value })
-                }
+                onChange={(e) => {
+                  console.log(
+                    "[SIGNUP] password updated (length):",
+                    e.target.value.length
+                  );
+                  setFormData({ ...formData, password: e.target.value });
+                }}
               />
             </div>
             <div>
@@ -145,9 +170,13 @@ export default function SignupPage() {
                 className="appearance-none relative block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-white dark:bg-gray-800 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
                 placeholder="Confirm Password"
                 value={formData.confirmPassword}
-                onChange={(e) =>
-                  setFormData({ ...formData, confirmPassword: e.target.value })
-                }
+                onChange={(e) => {
+                  console.log(
+                    "[SIGNUP] confirmPassword updated (length):",
+                    e.target.value.length
+                  );
+                  setFormData({ ...formData, confirmPassword: e.target.value });
+                }}
               />
             </div>
           </div>
