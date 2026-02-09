@@ -1,9 +1,9 @@
-import EnvironmentBadge from '../components/EnvironmentBadge';
-import { getApiBaseUrl } from '../lib/env.client';
+import EnvironmentBadge from "../components/EnvironmentBadge";
+import { getApiBaseUrl } from "../lib/env.client";
 
 export default function Home() {
   const apiBaseUrl = getApiBaseUrl();
-  const buildEnv = process.env.NODE_ENV || 'development';
+  const buildEnv = process.env.NODE_ENV || "development";
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -14,7 +14,9 @@ export default function Home() {
           </div>
           <div>
             <p className="text-lg font-semibold">CollabLedger</p>
-            <p className="text-xs text-muted-foreground">NGO collaboration hub</p>
+            <p className="text-xs text-muted-foreground">
+              NGO collaboration hub
+            </p>
           </div>
         </div>
         <div className="hidden items-center gap-3 sm:flex">
@@ -32,9 +34,9 @@ export default function Home() {
               Eliminate duplicate work and accelerate social impact.
             </h1>
             <p className="text-lg text-muted-foreground">
-              CollabLedger unifies NGO projects and open-source contributors in one
-              shared workspace, so teams can discover active initiatives, align
-              tasks, and deliver faster.
+              CollabLedger unifies NGO projects and open-source contributors in
+              one shared workspace, so teams can discover active initiatives,
+              align tasks, and deliver faster.
             </p>
             <div className="flex flex-col gap-3 sm:flex-row">
               <button className="rounded-full bg-foreground px-6 py-3 text-sm font-semibold text-background hover:bg-[#383838] dark:hover:bg-[#ccc]">
@@ -50,7 +52,7 @@ export default function Home() {
               <span>Secure & transparent</span>
             </div>
           </div>
-          <div className="rounded-3xl border border-black/5 bg-gradient-to-br from-black/5 to-transparent p-6 dark:border-white/10">
+          <div className="rounded-3xl border border-black/5 bg-linear-to-br from-black/5 to-transparent p-6 dark:border-white/10">
             <div className="space-y-4 rounded-2xl bg-background p-6 shadow-sm">
               <p className="text-xs uppercase tracking-wide text-muted-foreground">
                 Active initiatives
@@ -72,19 +74,19 @@ export default function Home() {
         <section className="grid gap-6 md:grid-cols-3">
           {[
             {
-              title: 'Project Visibility',
+              title: "Project Visibility",
               description:
-                'See every initiative, pipeline stage, and resource in a single dashboard.',
+                "See every initiative, pipeline stage, and resource in a single dashboard.",
             },
             {
-              title: 'Contributor Matching',
+              title: "Contributor Matching",
               description:
-                'Connect open-source talent with NGO needs based on skills and impact.',
+                "Connect open-source talent with NGO needs based on skills and impact.",
             },
             {
-              title: 'Accountability',
+              title: "Accountability",
               description:
-                'Track milestones, owners, and outcomes with full transparency.',
+                "Track milestones, owners, and outcomes with full transparency.",
             },
           ].map((feature) => (
             <div
@@ -92,16 +94,21 @@ export default function Home() {
               className="rounded-2xl border border-black/5 p-6 text-sm shadow-sm dark:border-white/10"
             >
               <h3 className="text-lg font-semibold">{feature.title}</h3>
-              <p className="mt-3 text-muted-foreground">{feature.description}</p>
+              <p className="mt-3 text-muted-foreground">
+                {feature.description}
+              </p>
             </div>
           ))}
         </section>
 
         <section className="flex flex-col items-start justify-between gap-6 rounded-3xl bg-black/5 p-8 dark:bg-white/5 md:flex-row md:items-center">
           <div>
-            <h2 className="text-2xl font-semibold">Ready to coordinate impact?</h2>
+            <h2 className="text-2xl font-semibold">
+              Ready to coordinate impact?
+            </h2>
             <p className="mt-2 text-sm text-muted-foreground">
-              Launch a workspace for your organization and invite contributors in minutes.
+              Launch a workspace for your organization and invite contributors
+              in minutes.
             </p>
           </div>
           <button className="rounded-full bg-foreground px-6 py-3 text-sm font-semibold text-background hover:bg-[#383838] dark:hover:bg-[#ccc]">

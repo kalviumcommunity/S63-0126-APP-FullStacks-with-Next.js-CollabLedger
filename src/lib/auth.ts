@@ -7,7 +7,17 @@
 
 import jwt from "jsonwebtoken";
 import type { NextRequest } from "next/server";
-import { getJwtSecret } from "./env.server";
+
+/**
+ * Get JWT secret from environment variables
+ */
+function getJwtSecret(): string {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    throw new Error("JWT_SECRET environment variable is not set");
+  }
+  return secret;
+}
 
 /**
  * Decoded JWT payload structure
@@ -156,4 +166,16 @@ export function isValidUserRole(
   value: unknown
 ): value is "ADMIN" | "USER" | "EDITOR" {
   return ["ADMIN", "USER", "EDITOR"].includes(String(value));
+}
+
+/**
+ * Sign a JWT token with the given payload
+ * @param payload - Data to be included in the token
+ * @returns Signed JWT string
+ */
+export function signJWT(payload: DecodedToken): string {
+  const { id, email, role } = payload;
+  return jwt.sign({ id, email, role }, getJwtSecret(), {
+    expiresIn: "1d",
+  });
 }

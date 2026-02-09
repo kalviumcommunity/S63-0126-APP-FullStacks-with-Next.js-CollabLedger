@@ -1,260 +1,386 @@
 # CollabLedger
 
-CollabLedger is a centralized platform designed to streamline collaboration between NGOs and open-source contributors. By providing visibility into ongoing projects and contribution pipelines, it aims to eliminate redundant efforts and maximize the impact of social good initiatives.
+> NGO Collaboration Platform - Eliminate duplicate work and accelerate social impact
 
-## Problem Statement
+CollabLedger is a modern web application built with Next.js 16 (App Router) that unifies NGO projects and open-source contributors in one shared workspace. Teams can discover active initiatives, align tasks, and deliver faster.
 
-NGOs and open-source contributors often work in silos, leading to significant duplication of work. Without a clear view of existing projects or active contribution pipelines, valuable resources are wasted on solving problems that have already been addressed elsewhere. CollabLedger solves this by providing a transparent, unified dashboard for project tracking and collaboration.
+## 🚀 Tech Stack
 
-## Folder Structure
+- **Framework**: Next.js 16+ (App Router)
+- **Language**: TypeScript
+- **Styling**: Tailwind CSS 4
+- **Database**: PostgreSQL with Prisma ORM
+- **Authentication**: JWT-based auth with HTTP-only cookies
+- **Deployment**: Vercel-ready
 
-The project follows a standard Next.js `src/` directory structure to ensure clean separation of concerns:
+## 📁 Project Structure
 
-- `src/app/`: Contains the App Router pages, layouts, and API routes. This is the core of the application's routing logic.
-- `src/components/`: Dedicated to reusable UI components (e.g., Headers, Buttons, Modals, Cards). This promotes the "Don't Repeat Yourself" (DRY) principle.
-- `src/lib/`: Holds utility functions, shared configurations, and third-party library initializations (e.g., Prisma client, configuration helpers).
+```
+src/
+├── app/                      # Next.js App Router pages
+│   ├── page.tsx             # Home/Landing page (public)
+│   ├── login/               # Login page (public)
+│   ├── signup/              # Sign up page (public)
+│   ├── about/               # About page (public)
+│   ├── dashboard/           # Dashboard (protected)
+│   ├── projects/
+│   │   └── [id]/           # Dynamic project detail (protected)
+│   ├── api/                # API routes
+│   │   ├── auth/           # Authentication endpoints
+│   │   ├── projects/       # Project CRUD
+│   │   ├── tasks/          # Task management
+│   │   └── users/          # User management
+│   ├── layout.tsx          # Root layout
+│   └── not-found.tsx       # Custom 404 page
+├── components/             # Reusable React components
+├── lib/                    # Utility functions & configs
+│   ├── auth.ts            # JWT utilities
+│   ├── prisma.ts          # Database client
+│   └── errorHandler.ts    # Error handling
+├── middleware.ts          # Route protection middleware
+└── types/                 # TypeScript type definitions
+```
 
-## Setup Instructions
+## 🛣️ Routing Architecture
+
+### Route Map
+
+#### **Public Routes** (No authentication required)
+- `/` - Landing page showcasing CollabLedger features
+- `/login` - User authentication
+- `/signup` - New user registration
+- `/about` - About the platform
+- `/products` - Products/Features page
+
+#### **Protected Routes** (Authentication required)
+- `/dashboard` - User dashboard with project overview
+- `/projects/[id]` - Dynamic route for individual project details
+  - Example: `/projects/abc123` shows project with ID "abc123"
+  - Fetches real data from `/api/projects/:id`
+  - Displays project info, tasks, and collaboration options
+
+### Route Protection Strategy
+
+**Middleware-Based Protection** (`src/middleware.ts`)
+
+The application uses Next.js middleware to protect routes at the edge:
+
+1. **API Routes**: Token validation via `Authorization: Bearer <token>` header
+2. **Page Routes**: Token validation via HTTP-only cookie (`auth_token`)
+
+**Protection Flow:**
+```
+User visits /dashboard
+    ↓
+Middleware checks for auth_token cookie
+    ↓
+Cookie exists? → Verify JWT
+    ↓
+Valid token? → Allow access
+    ↓
+Invalid/Missing? → Redirect to /login?redirect=/dashboard
+```
+
+**Cookie Management:**
+- Set on login: `auth_token` cookie with 7-day expiration
+- Cleared on logout
+- HTTP-only for security
+- SameSite=Lax to prevent CSRF
+
+## 🔐 Authentication Flow
+
+```mermaid
+sequenceDiagram
+    User->>Login Page: Enter credentials
+    Login Page->>API: POST /api/auth/login
+    API->>Database: Verify user
+    Database->>API: User data
+    API->>Login Page: JWT token
+    Login Page->>Browser: Set cookie + localStorage
+    Login Page->>Dashboard: Redirect
+    Dashboard->>Middleware: Request with cookie
+    Middleware->>Dashboard: Access granted
+```
+
+## 🎨 Dynamic Routes
+
+### `/projects/[id]` - Project Detail Page
+
+**Features:**
+- ✅ Real-time project data fetching from backend API
+- ✅ Loading state with spinner
+- ✅ Error handling for non-existent projects (404)
+- ✅ Task list with status badges
+- ✅ Owner-specific actions (only project owners can add tasks)
+- ✅ Beautiful NGO-themed UI with animations
+
+**Data Flow:**
+```typescript
+Page loads → Check auth → Fetch from /api/projects/:id
+    ↓
+Response handling:
+  - 200: Display project
+  - 404: Show "Project not found"
+  - 401/403: Redirect to login
+  - Other: Show error message
+```
+
+**Example Usage:**
+```bash
+# View project with ID "abc-123"
+https://collabledger.app/projects/abc-123
+
+# Backend API call made:
+GET /api/projects/abc-123
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+## 🚫 Custom 404 Page
+
+Located at `src/app/not-found.tsx`
+
+**Features:**
+- Friendly NGO-themed error message
+- Navigation shortcuts to Dashboard, Home, Login, and Signup
+- Animated elements for better UX
+- Fully responsive design
+
+**Triggered when:**
+- User visits a non-existent route (e.g., `/invalid-page`)
+- Project with given ID doesn't exist
+- Any unmatched route in the app
+
+## 🔧 Setup & Installation
 
 ### Prerequisites
-- Node.js (v18.x or later)
+- Node.js 18+
+- PostgreSQL database
 - npm or yarn
 
-### Local Development
+### Environment Variables
 
-1. **Clone the repository:**
-   ```bash
-   git clone <repository-url>
-   cd CollabLedger
-   ```
-
-2. **Install dependencies:**
-   ```bash
-   npm install
-   ```
-
-3. **Run the development server:**
-   ```bash
-   npm run dev
-   ```
-
-4. **Access the application:**
-   Open [http://localhost:3000](http://localhost:3000) in your browser.
-
-## Environment-Aware Builds & Secrets
-
-### Environment Differences
-- **Development** (`.env.development`): local services and localhost API base URL.
-- **Staging** (`.env.staging`): pre-production endpoints for integration testing.
-- **Production** (`.env.production`): production endpoints and database URLs.
-
-### Where Secrets Are Stored
-- **Local**: `.env.development`, `.env.staging`, `.env.production` (ignored by Git).
-- **CI/CD**: GitHub Secrets inject values at build time.
-- **Runtime (optional AWS)**: AWS Secrets Manager or SSM Parameter Store.
-
-### Why Env-Aware Builds Improve CI/CD
-- Prevents accidental cross-environment configuration.
-- Ensures the correct API endpoints and database connections are used per build.
-- Makes deployments reproducible and auditable with explicit environment selection.
-
-### Local Build Verification
-```bash
-npm run build:staging
-npm run build:production
+Create `.env` file:
+```env
+DATABASE_URL="postgresql://user:password@localhost:5432/collabledger"
+JWT_SECRET="your-super-secret-jwt-key"
+NEXT_PUBLIC_API_BASE_URL="http://localhost:3000/api"
 ```
-If the build succeeds, the `NEXT_PUBLIC_APP_ENV` badge on the homepage and the
-`/api/health` response will reflect the selected environment.
 
-## Prisma ORM Setup
+### Installation
 
-### Why Prisma in CollabLedger?
-Prisma provides a type-safe database client, reduces runtime query errors, and
-improves developer productivity with autocompletion and schema-driven modeling.
-This aligns with the project's need for reliable data access in a collaborative
-platform.
+```bash
+# Install dependencies
+npm install
 
-### Setup Steps Performed
-1. Installed Prisma and Prisma Client.
-2. Initialized Prisma with PostgreSQL (`DATABASE_URL` from env vars).
-3. Defined MVP models (`User`, `Project`) with relations.
-4. Generated Prisma Client.
-5. Implemented a singleton client for Next.js.
-6. Verified connection via a safe test query.
+# Set up database
+npx prisma migrate dev
+npx prisma db seed
 
-### `schema.prisma` (excerpt)
+# Run development server
+npm run dev
+```
+
+Visit `http://localhost:3000`
+
+## 🧪 Testing Routes
+
+### Test Public Access
+```bash
+# These should work without login
+curl http://localhost:3000/
+curl http://localhost:3000/login
+curl http://localhost:3000/signup
+```
+
+### Test Protected Routes
+```bash
+# Without auth - should redirect to login
+curl -I http://localhost:3000/dashboard
+
+# With auth cookie - should return 200
+curl -H "Cookie: auth_token=YOUR_JWT_TOKEN" http://localhost:3000/dashboard
+```
+
+### Test Dynamic Route
+```bash
+# Login first to get token
+RESPONSE=$(curl -X POST http://localhost:3000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"user@example.com","password":"password"}')
+
+TOKEN=$(echo $RESPONSE | jq -r '.data.token')
+
+# Visit dynamic route
+curl -H "Cookie: auth_token=$TOKEN" http://localhost:3000/projects/PROJECT_ID
+```
+
+### Test 404 Handling
+```bash
+# Visit non-existent route - should show custom 404
+curl http://localhost:3000/this-does-not-exist
+```
+
+## 📊 Database Schema
+
 ```prisma
-generator client {
-  provider = "prisma-client-js"
-}
-
-datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
-}
-
 model User {
-  id       String   @id @default(uuid())
-  email    String   @unique
-  name     String?
-  projects Project[]
+  id        String   @id @default(uuid())
+  email     String   @unique
+  name      String?
+  password  String
+  role      UserRole @default(USER)
+  projects  Project[]
 }
 
 model Project {
-  id      String  @id @default(uuid())
-  title   String
-  ownerId String
-  owner   User    @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  id          String        @id @default(uuid())
+  title       String
+  description String
+  status      ProjectStatus @default(IDEA)
+  owner       User          @relation(fields: [ownerId], references: [id])
+  ownerId     String
+  tasks       Task[]
+}
+
+model Task {
+  id          String     @id @default(uuid())
+  title       String
+  description String?
+  status      TaskStatus @default(TODO)
+  project     Project    @relation(fields: [projectId], references: [id])
+  projectId   String
 }
 ```
 
-### `src/lib/prisma.ts` (singleton)
+## 🎯 SEO & Performance Benefits
+
+### Next.js App Router Advantages
+
+1. **Server-Side Rendering (SSR)**
+   - Dynamic project pages rendered on server
+   - Better SEO for project listings
+   - Faster initial page load
+
+2. **Automatic Code Splitting**
+   - Each route loads only required JavaScript
+   - `/projects/[id]` bundle separate from dashboard
+   - Improved performance and reduced bandwidth
+
+3. **Metadata API**
+   - Dynamic meta tags per project
+   - Better social media sharing
+   - Improved search engine indexing
+
+4. **Streaming & Suspense**
+   - Progressive page rendering
+   - Loading states while data fetches
+   - Better perceived performance
+
+### Route-Level Optimizations
+
 ```typescript
-import { PrismaClient } from "@prisma/client";
-
-const globalForPrisma = global as unknown as { prisma?: PrismaClient };
-
-export const prisma =
-  globalForPrisma.prisma ||
-  new PrismaClient({
-    log: ["query", "error", "warn"],
-  });
-
-if (process.env.NODE_ENV !== "production") {
-  globalForPrisma.prisma = prisma;
+// Example: Dynamic metadata for project pages
+export async function generateMetadata({ params }) {
+  const project = await fetchProject(params.id);
+  return {
+    title: `${project.title} | CollabLedger`,
+    description: project.description,
+    openGraph: {
+      title: project.title,
+      description: project.description,
+      type: 'article',
+    },
+  };
 }
 ```
 
-### Proof of Connection
-Run the app and call:
-```
-GET /api/prisma-test
-```
-Expected response (no sensitive data):
-```json
-{ "status": "ok", "userCount": 0 }
-```
+## 🚀 Deployment
 
-### Reflection
-Prisma improves reliability by enforcing schema constraints at compile time,
-reducing mismatched queries. It also accelerates development with generated
-types, which lowers the chance of runtime crashes and makes refactors safer.
+### Vercel (Recommended)
 
-## Input Validation with Zod
-
-### Why Input Validation Matters
-Validating inputs prevents malformed or malicious data from reaching business
-logic and database operations. It improves reliability, security, and user
-feedback by returning clear, consistent error messages.
-
-### Why Zod?
-Zod is TypeScript-first, lightweight, and provides runtime validation with
-inferred types for compile-time safety. It fits well with Next.js App Router
-and keeps schemas reusable across server and client.
-
-### Shared Schemas (excerpt)
-```typescript
-import { z } from "zod";
-
-export const CreateUserSchema = z.object({
-  email: z.string().email("Invalid email address"),
-  name: z.string().min(2).max(100).optional(),
-});
-
-export const UpdateUserSchema = CreateUserSchema.partial().extend({
-  id: z.string().uuid("User id must be a valid UUID"),
-});
-```
-
-```typescript
-export const CreateProjectSchema = z.object({
-  title: z.string().min(3).max(120),
-  description: z.string().min(10).max(1000),
-  ownerId: z.string().uuid(),
-  status: z.enum(["IDEA", "IN_PROGRESS", "COMPLETED"]).optional(),
-});
-
-export const UpdateProjectSchema = CreateProjectSchema.partial().extend({
-  id: z.string().uuid("Project id must be a valid UUID"),
-});
-```
-
-### API Route Validation Pattern (excerpt)
-```typescript
-const result = CreateUserSchema.safeParse(body);
-if (!result.success) {
-  return validationErrorResponse(result.error);
-}
-```
-
-### Example Requests
-**Valid (POST /api/users)**
 ```bash
-curl -X POST http://localhost:3000/api/users \
-  -H "Content-Type: application/json" \
-  -d '{"email":"user@example.com","name":"Asha"}'
+# Install Vercel CLI
+npm i -g vercel
+
+# Deploy
+vercel
+
+# Set environment variables in Vercel dashboard
+# Add DATABASE_URL, JWT_SECRET, etc.
 ```
 
-**Invalid (POST /api/projects)**
+### Environment-Specific Builds
+
 ```bash
-curl -X POST http://localhost:3000/api/projects \
-  -H "Content-Type: application/json" \
-  -d '{"title":"Hi","description":"short","ownerId":"not-a-uuid"}'
+# Staging
+npm run build:staging
+
+# Production
+npm run build:production
 ```
 
-Expected error format:
-```json
-{
-  "success": false,
-  "message": "Validation Error",
-  "errors": [
-    { "field": "title", "message": "Title must be at least 3 characters" }
-  ]
-}
-```
+## 📝 Reflection: Routing & SEO
 
-### Reflection
-Reusing schemas (e.g., `.partial()` for PUT) improves maintainability by keeping
-validation logic centralized. The approach reduces duplication, keeps error
-responses consistent, and makes API contracts more reliable for team workflows.
+### Key Learnings
 
-## Reflection
+**1. App Router vs Pages Router**
 
-### Why this folder structure was chosen?
-The `src/` directory structure with segregated `app`, `components`, and `lib` folders was chosen to align with industry best practices for Next.js applications. It keeps the root directory clean and provides a clear map of where different types of code should reside.
+The Next.js App Router provides significant improvements:
+- **File-based routing** makes structure intuitive (`app/projects/[id]/page.tsx`)
+- **Nested layouts** reduce code duplication
+- **Server components by default** improve initial load performance
+- **Streaming** enables progressive page rendering
 
-### How it supports scalability and collaboration?
-- **Scalability**: By separating UI components from page logic and utility functions, the codebase remains manageable as it grows. New features can be added by creating new routes in `app/` and reusing existing components from `components/`.
-- **Collaboration**: A standardized structure reduces the cognitive load for new contributors. Team members can easily locate files, reducing the friction often found in large-scale collaborative projects.
+**2. Route Protection Implementation**
 
-## Advanced Rendering Strategies (SSG, SSR, ISR)
+Implementing middleware-based protection taught us:
+- **Edge middleware** runs before page rendering, reducing server load
+- **Cookie-based auth** is more secure than localStorage for server-side validation
+- **Redirect preservation** (`?redirect=/dashboard`) improves UX after login
 
-This project demonstrates three fundamental rendering strategies in Next.js App Router, each optimized for different use cases:
+**3. Dynamic Routes Best Practices**
 
-### 1. Static Site Generation (SSG) - `/about`
-**File:** `src/app/about/page.tsx`
+Building `/projects/[id]`:
+- **Loading states** are crucial for perceived performance
+- **Error boundaries** prevent crashes from bad data
+- **404 handling** must be graceful and actionable
+- **TypeScript params** ensure type safety (`params.id as string`)
 
-**Configuration:**
-```typescript
-export const revalidate = false;
-```
+**4. SEO Benefits Realized**
 
-**Why This Strategy?**
-- The About page contains static content that rarely changes (company information, mission statement, etc.)
-- Pre-rendering at build time provides lightning-fast response times
-- No server computation needed per request
-- Excellent for SEO since the HTML is always available
+- **Server-rendered dynamic routes** ensure search engines can crawl project pages
+- **Custom 404 pages** reduce bounce rate
+- **Metadata API** enables per-page SEO optimization
+- **Fast page transitions** improve Core Web Vitals
 
-**Performance Benefits:**
-- Zero latency: Content is served directly from CDN or cache
-- Minimal server load
-- Predictable performance regardless of traffic volume
-- Can be served globally via edge networks without database queries
+### Challenges & Solutions
 
-**When to Use SSG:**
-- Blogs, documentation, landing pages
-- Content that updates on a release schedule (not daily)
-- Pages where user personalization is not needed
+| Challenge | Solution |
+|-----------|----------|
+| Cookie not accessible in middleware | Set cookie with `path=/` and proper SameSite |
+| Protected routes still accessible | Updated middleware matcher to include page routes |
+| Dynamic route params type safety | Used `useParams()` with TypeScript assertion |
+| 404 page styling inconsistency | Created custom not-found.tsx with brand styling |
+
+### Future Improvements
+
+- [ ] Implement ISR (Incremental Static Regeneration) for project pages
+- [ ] Add parallel routes for modals
+- [ ] Implement intercepting routes for task creation
+- [ ] Add route groups for better organization
+- [ ] Implement middleware caching for JWT verification
+
+## 🤝 Contributing
+
+Contributions are welcome! This project demonstrates:
+- Modern Next.js routing patterns
+- Secure authentication flows
+- Dynamic route implementation
+- SEO-friendly architecture
+
+## 📄 License
+
+MIT License - See LICENSE file for details
 
 ---
 
@@ -1336,4 +1462,4 @@ In production, you’d typically use a stronger invalidation strategy (key versi
 Typical expectations for a read-heavy list route:
 - **Cold request (cache miss)**: Postgres + Prisma query + serialization (often tens of milliseconds, depending on dataset and connection state).
 - **Cached request (cache hit)**: Redis GET + JSON parse (often a few milliseconds).
-
+**Built with ❤️ for the NGO community**
