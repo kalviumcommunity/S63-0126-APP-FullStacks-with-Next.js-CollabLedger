@@ -1,9 +1,10 @@
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { sendSuccess } from "@/lib/responseHandler";
 import { handleError, handleValidationError } from "@/lib/errorHandler";
 import { logger } from "@/lib/logger";
 import { hashPassword } from "@/lib/password";
+import { signJWT } from "@/lib/auth";
 
 export async function POST(req: NextRequest) {
   const context = { route: "/api/auth/signup", method: "POST" };
@@ -51,9 +52,17 @@ export async function POST(req: NextRequest) {
         id: true,
         email: true,
         name: true,
+        role: true,
         createdAt: true,
         updatedAt: true,
       },
+    });
+
+    // Generate JWT for auto-login
+    const token = signJWT({
+      id: newUser.id,
+      email: newUser.email,
+      role: newUser.role,
     });
 
     logger.info("User created successfully", {
@@ -62,7 +71,34 @@ export async function POST(req: NextRequest) {
       email: newUser.email,
     });
 
-    return sendSuccess(newUser, "User created successfully", 201);
+    console.log("[SIGNUP API] Setting HTTP-only 'token' cookie");
+    console.log("[SIGNUP API] Token (first 20 chars):", token.substring(0, 20));
+
+    // Return user info (excluding password)
+    const userInfo = {
+      id: newUser.id,
+      email: newUser.email,
+      name: newUser.name,
+      role: newUser.role,
+    };
+
+    // Create response with user info
+    const response = NextResponse.json(
+      sendSuccess(userInfo, "User created successfully", 201)
+    );
+
+    // Set HTTP-only cookie with JWT token for auto-login
+    response.cookies.set("token", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 60 * 60 * 24 * 7, // 7 days
+      path: "/",
+    });
+
+    console.log("[SIGNUP API] Cookie set successfully");
+
+    return response;
   } catch (error) {
     return handleError(error, context);
   }
