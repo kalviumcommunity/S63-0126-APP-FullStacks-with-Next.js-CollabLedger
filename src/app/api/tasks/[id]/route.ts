@@ -1,14 +1,19 @@
-import { NextRequest } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { sendSuccess } from '@/lib/responseHandler';
-import { handleError, handleValidationError, handleNotFound } from '@/lib/errorHandler';
-import { logger } from '@/lib/logger';
+import { NextRequest } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { sendSuccess } from "@/lib/responseHandler";
+import {
+  handleError,
+  handleValidationError,
+  handleNotFound,
+} from "@/lib/errorHandler";
+import { logger } from "@/lib/logger";
+import { revalidateTag } from "next/cache";
 
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const context = { route: '/api/tasks/[id]', method: 'PATCH' };
+  const context = { route: "/api/tasks/[id]", method: "PATCH" };
 
   try {
     const { id } = await params;
@@ -16,29 +21,40 @@ export async function PATCH(
     const { title, description, status } = body;
 
     // Validate ID
-    if (!id || typeof id !== 'string') {
-      return handleValidationError('Invalid task ID', context);
+    if (!id || typeof id !== "string") {
+      return handleValidationError("Invalid task ID", context);
     }
 
     // Validate input (at least one field must be provided)
-    if (title === undefined && description === undefined && status === undefined) {
+    if (
+      title === undefined &&
+      description === undefined &&
+      status === undefined
+    ) {
       return handleValidationError(
-        'At least one field is required to update',
+        "At least one field is required to update",
         context
       );
     }
 
     // Validate fields if provided
-    if (title !== undefined && typeof title !== 'string') {
-      return handleValidationError('Title must be a string', context);
+    if (title !== undefined && typeof title !== "string") {
+      return handleValidationError("Title must be a string", context);
     }
 
-    if (description !== undefined && description !== null && typeof description !== 'string') {
-      return handleValidationError('Description must be a string', context);
+    if (
+      description !== undefined &&
+      description !== null &&
+      typeof description !== "string"
+    ) {
+      return handleValidationError("Description must be a string", context);
     }
 
-    if (status !== undefined && !['TODO', 'IN_PROGRESS', 'DONE'].includes(status)) {
-      return handleValidationError('Invalid status value', context);
+    if (
+      status !== undefined &&
+      !["TODO", "IN_PROGRESS", "DONE"].includes(status)
+    ) {
+      return handleValidationError("Invalid status value", context);
     }
 
     // Check if task exists
@@ -47,7 +63,7 @@ export async function PATCH(
     });
 
     if (!existingTask) {
-      return handleNotFound('Task', { ...context, taskId: id });
+      return handleNotFound("Task", { ...context, taskId: id });
     }
 
     // Update task
@@ -70,13 +86,17 @@ export async function PATCH(
       },
     });
 
-    logger.info('Task updated successfully', {
+    logger.info("Task updated successfully", {
       route: context.route,
       taskId: id,
       updatedFields: Object.keys(updateData),
     });
 
-    return sendSuccess(updatedTask, 'Task updated successfully', 200);
+    // Invalidate relevant caches after a successful write
+    revalidateTag(`project:${updatedTask.projectId}`, { expire: 0 });
+    revalidateTag(`projectTasks:${updatedTask.projectId}`, { expire: 0 });
+
+    return sendSuccess(updatedTask, "Task updated successfully", 200);
   } catch (error) {
     return handleError(error, context);
   }
@@ -86,14 +106,14 @@ export async function DELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const context = { route: '/api/tasks/[id]', method: 'DELETE' };
+  const context = { route: "/api/tasks/[id]", method: "DELETE" };
 
   try {
     const { id } = await params;
 
     // Validate ID
-    if (!id || typeof id !== 'string') {
-      return handleValidationError('Invalid task ID', context);
+    if (!id || typeof id !== "string") {
+      return handleValidationError("Invalid task ID", context);
     }
 
     // Check if task exists
@@ -102,7 +122,7 @@ export async function DELETE(
     });
 
     if (!existingTask) {
-      return handleNotFound('Task', { ...context, taskId: id });
+      return handleNotFound("Task", { ...context, taskId: id });
     }
 
     // Delete task
@@ -110,14 +130,18 @@ export async function DELETE(
       where: { id },
     });
 
-    logger.info('Task deleted successfully', {
+    logger.info("Task deleted successfully", {
       route: context.route,
       taskId: id,
     });
 
+    // Invalidate relevant caches after a successful write
+    revalidateTag(`project:${existingTask.projectId}`, { expire: 0 });
+    revalidateTag(`projectTasks:${existingTask.projectId}`, { expire: 0 });
+
     return sendSuccess(
-      { message: 'Task deleted successfully' },
-      'Task deleted successfully',
+      { message: "Task deleted successfully" },
+      "Task deleted successfully",
       200
     );
   } catch (error) {

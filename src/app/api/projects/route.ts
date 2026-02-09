@@ -7,6 +7,7 @@ import {
   handleNotFound,
 } from "@/lib/errorHandler";
 import { logger } from "@/lib/logger";
+import { revalidateTag, unstable_cache } from "next/cache";
 import { verifyApiRequest } from "@/lib/apiAuth";
 
 export async function GET(req: NextRequest) {
@@ -26,6 +27,7 @@ export async function GET(req: NextRequest) {
     const limit = parseInt(searchParams.get("limit") || "100", 10);
     const mine = searchParams.get("mine") === "true";
     const publicProjects = searchParams.get("public") === "true";
+    const contributed = searchParams.get("contributed") === "true";
 
     // Validate pagination params
     if (page < 1 || limit < 1 || limit > 100) {
@@ -35,54 +37,69 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const skip = (page - 1) * limit;
+    const cacheKey = `api-projects-list:${userId}:${page}:${limit}:${mine}:${publicProjects}:${contributed}`;
+    const getProjectsCached = unstable_cache(
+      async () => {
+        const skip = (page - 1) * limit;
 
-    // Build filter based on query params
-    let where = {};
+        // This query param is used by the dashboard, but the backend support
+        // may not exist yet. Return an empty list gracefully (no crash).
+        if (contributed) {
+          return { total: 0, projects: [] as unknown[] };
+        }
 
-    if (mine) {
-      // Get projects owned by current user
-      where = { ownerId: userId };
-    } else if (publicProjects) {
-      // Get projects NOT owned by current user
-      where = {
-        NOT: { ownerId: userId },
-      };
-    }
+        // Build filter based on query params
+        let where: Record<string, unknown> = {};
 
-    // Get total count with filter
-    const total = await prisma.project.count({ where });
+        if (mine) {
+          // Get projects owned by current user
+          where = { ownerId: userId };
+        } else if (publicProjects) {
+          // Get projects NOT owned by current user
+          where = {
+            NOT: { ownerId: userId },
+          };
+        }
 
-    // Get projects with pagination and filter
-    const projects = await prisma.project.findMany({
-      skip,
-      take: limit,
-      where,
-      select: {
-        id: true,
-        title: true,
-        description: true,
-        status: true,
-        ownerId: true,
-        createdAt: true,
-        updatedAt: true,
-        owner: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
-        tasks: {
-          select: {
-            id: true,
-            status: true,
-          },
-        },
+        const [total, projects] = await Promise.all([
+          prisma.project.count({ where }),
+          prisma.project.findMany({
+            skip,
+            take: limit,
+            where,
+            select: {
+              id: true,
+              title: true,
+              description: true,
+              status: true,
+              ownerId: true,
+              createdAt: true,
+              updatedAt: true,
+              owner: {
+                select: {
+                  id: true,
+                  name: true,
+                  email: true,
+                },
+              },
+              tasks: {
+                select: {
+                  id: true,
+                  status: true,
+                },
+              },
+            },
+            orderBy: { createdAt: "desc" },
+          }),
+        ]);
+
+        return { total, projects };
       },
-      orderBy: { createdAt: "desc" },
-    });
+      [cacheKey],
+      { revalidate: 30, tags: ["projects"] }
+    );
 
+    const { total, projects } = await getProjectsCached();
     logger.info("Projects retrieved successfully", {
       route: context.route,
       page,
@@ -90,6 +107,7 @@ export async function GET(req: NextRequest) {
       totalCount: total,
       mine,
       publicProjects,
+      contributed,
       userId: userId || undefined,
     });
 
@@ -120,6 +138,7 @@ export async function POST(req: NextRequest) {
     if (!auth.success) {
       return auth.error;
     }
+    const userId = auth.userId!;
 
     const body = await req.json();
     const { title, description, ownerId } = body;
@@ -139,20 +158,23 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (!ownerId || typeof ownerId !== "string") {
+    // Enforce ownerId = authenticated user (production-safe)
+    const effectiveOwnerId =
+      ownerId && typeof ownerId === "string" ? ownerId : userId;
+    if (effectiveOwnerId !== userId) {
       return handleValidationError(
-        "OwnerId is required and must be a string",
+        "OwnerId must match the authenticated user",
         context
       );
     }
 
     // Check if owner exists
     const owner = await prisma.user.findUnique({
-      where: { id: ownerId },
+      where: { id: effectiveOwnerId },
     });
 
     if (!owner) {
-      return handleNotFound("Owner", { ...context, ownerId });
+      return handleNotFound("Owner", { ...context, ownerId: effectiveOwnerId });
     }
 
     // Create project
@@ -160,7 +182,7 @@ export async function POST(req: NextRequest) {
       data: {
         title,
         description,
-        ownerId,
+        ownerId: effectiveOwnerId,
       },
       select: {
         id: true,
@@ -179,6 +201,9 @@ export async function POST(req: NextRequest) {
       ownerId: newProject.ownerId,
     });
 
+    // Invalidate relevant caches after a successful write
+    revalidateTag("projects", { expire: 0 });
+    revalidateTag(`project:${newProject.id}`, { expire: 0 });
     return sendSuccess(newProject, "Project created successfully", 201);
   } catch (error) {
     return handleError(error, context);

@@ -2,13 +2,13 @@
  * Authorization Middleware
  *
  * Intercepts all incoming requests and:
- * 1. Validates JWT tokens from Authorization headers (for API routes) - FULL VERIFICATION
- * 2. Checks JWT token presence in cookies (for page routes) - PRESENCE CHECK ONLY
- * 3. Enforces role-based access control (API routes only)
- * 4. Attaches user context to request headers for downstream handlers
+ * 1. Checks token presence for protected API routes (Edge-safe presence check)
+ * 2. Checks token presence in cookies for protected page routes (Edge-safe presence check)
  *
- * Note: Page route protection only checks cookie presence due to Edge runtime limitations.
- * Full JWT verification happens in API routes (Node.js runtime).
+ * Note: Middleware runs in the Edge runtime. To keep this production-safe and
+ * compatible, we do NOT perform full JWT signature verification or RBAC checks
+ * here. Full JWT verification + role enforcement happens inside API route
+ * handlers (Node.js runtime).
  *
  * Protects API routes:
  * - /api/admin/* - Admin-only routes
@@ -119,27 +119,14 @@ function findProtectedApiRoute(
  */
 function getTokenFromCookie(req: NextRequest): string | null {
   // Read HTTP-only token cookie set by backend
-  const token = req.cookies.get("token")?.value || null;
-  console.log("[MIDDLEWARE][COOKIE] Checking for 'token' cookie");
-  console.log(
-    "[MIDDLEWARE][COOKIE] All cookies:",
-    req.cookies
-      .getAll()
-      .map((c) => c.name)
-      .join(", ")
-  );
-  console.log(
-    "[MIDDLEWARE][COOKIE] Token:",
-    token ? `present (${token.substring(0, 20)}...)` : "MISSING"
-  );
-  return token;
+  return req.cookies.get("token")?.value || null;
 }
 
 /**
  * Main middleware function
  * Runs for all incoming requests to the application
  */
-export function middleware(req: NextRequest) {
+export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   // Handle API routes
@@ -184,23 +171,12 @@ function handleApiRoute(req: NextRequest) {
   }
 
   if (!token) {
-    return NextResponse.json(
-      sendError(
-        "Authorization token is missing",
-        ERROR_CODES.UNAUTHORIZED,
-        401
-      ),
-      { status: 401 }
+    return sendError(
+      "Authorization token is missing",
+      ERROR_CODES.UNAUTHORIZED,
+      401
     );
   }
-
-  // Token exists - allow the request to proceed
-  // Note: We don't verify signature here (Edge runtime limitation)
-  // API route handlers will verify the token (they run in Node runtime)
-  console.log("[MIDDLEWARE][API] Token present for:", pathname);
-  console.log(
-    "[MIDDLEWARE][API] Token verification will happen in route handler"
-  );
 
   return NextResponse.next();
 }
@@ -215,31 +191,22 @@ function handleApiRoute(req: NextRequest) {
 function handlePageRoute(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  console.log("\n[MIDDLEWARE][PAGE] ════════════════════════════════");
-  console.log("[MIDDLEWARE][PAGE] Request to:", pathname);
-  console.log("[MIDDLEWARE][PAGE] Method:", req.method);
-
   // Allow public page routes
   if (isPublicPageRoute(pathname)) {
-    console.log("[MIDDLEWARE][PAGE] ✅ Public route, allowing\n");
     return NextResponse.next();
   }
 
   // Check if this is a protected page route
   if (!isProtectedPageRoute(pathname)) {
     // Not explicitly protected, allow it
-    console.log("[MIDDLEWARE][PAGE] ✅ Not protected, allowing\n");
     return NextResponse.next();
   }
-
-  console.log("[MIDDLEWARE][PAGE] 🔒 Protected route, checking auth...");
 
   // Protected page route - check for auth token in cookie
   const token = getTokenFromCookie(req);
 
   if (!token) {
     // No token found - redirect to login
-    console.log("[MIDDLEWARE][PAGE] ❌ No token, redirecting to /login\n");
     const loginUrl = new URL("/login", req.url);
     loginUrl.searchParams.set("redirect", pathname);
     return NextResponse.redirect(loginUrl);
@@ -248,11 +215,6 @@ function handlePageRoute(req: NextRequest) {
   // Token exists - allow access
   // Note: We don't verify signature here (Edge runtime limitation)
   // API routes will verify the token when data is fetched
-  console.log("[MIDDLEWARE][PAGE] ✅ Token present, allowing access");
-  console.log(
-    "[MIDDLEWARE][PAGE] ℹ️  Token verification happens in API routes\n"
-  );
-
   return NextResponse.next();
 }
 

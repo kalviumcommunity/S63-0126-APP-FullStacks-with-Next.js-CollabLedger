@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { sendSuccess, sendError } from "@/lib/responseHandler";
 import {
@@ -65,9 +65,6 @@ export async function POST(req: NextRequest) {
       email: user.email,
     });
 
-    console.log("[LOGIN API] Setting HTTP-only 'token' cookie");
-    console.log("[LOGIN API] Token (first 20 chars):", token.substring(0, 20));
-
     // Return user info (excluding password)
     const userInfo = {
       id: user.id,
@@ -77,9 +74,7 @@ export async function POST(req: NextRequest) {
     };
 
     // Create response with user info
-    const response = NextResponse.json(
-      sendSuccess(userInfo, "Login successful", 200)
-    );
+    const response = sendSuccess(userInfo, "Login successful", 200);
 
     // Set HTTP-only cookie with JWT token
     response.cookies.set("token", token, {
@@ -89,8 +84,6 @@ export async function POST(req: NextRequest) {
       maxAge: 60 * 60 * 24 * 7, // 7 days
       path: "/",
     });
-
-    console.log("[LOGIN API] Cookie set successfully");
 
     return response;
   } catch (error) {
