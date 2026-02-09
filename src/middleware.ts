@@ -15,7 +15,7 @@
 
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { verifyJWT, extractTokenFromHeader } from "@/lib/auth";
+import { jwtVerify } from "jose";
 import { sendError } from "@/lib/responseHandler";
 import { ERROR_CODES } from "@/lib/errorCodes";
 
@@ -75,7 +75,7 @@ function findProtectedRoute(
  * Main middleware function
  * Runs for all incoming requests to the application
  */
-export function middleware(req: NextRequest) {
+export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   // Allow public routes without authentication
@@ -93,35 +93,58 @@ export function middleware(req: NextRequest) {
 
   // Extract token from Authorization header
   const authHeader = req.headers.get("authorization");
-  const token = extractTokenFromHeader(authHeader);
+  const token = (() => {
+    if (!authHeader) return null;
+    const parts = authHeader.split(" ");
+    if (parts.length !== 2 || parts[0].toLowerCase() !== "bearer") return null;
+    return parts[1];
+  })();
 
   if (!token) {
-    return NextResponse.json(
-      sendError(
-        "Authorization token is missing",
-        ERROR_CODES.UNAUTHORIZED,
-        401
-      ),
-      { status: 401 }
+    return sendError(
+      "Authorization token is missing",
+      ERROR_CODES.UNAUTHORIZED,
+      401
     );
   }
 
-  // Verify JWT token
-  let decoded;
-  try {
-    decoded = verifyJWT(token);
-  } catch (error) {
-    const errorMessage =
-      error instanceof Error ? error.message : "Invalid token";
-    const status = errorMessage === "TOKEN_EXPIRED" ? 401 : 403;
-    const code =
-      errorMessage === "TOKEN_EXPIRED"
-        ? ERROR_CODES.TOKEN_EXPIRED
-        : ERROR_CODES.INVALID_TOKEN;
+  // Verify JWT token (Edge runtime compatible)
+  const jwtSecret = process.env.JWT_SECRET;
+  if (!jwtSecret) {
+    return sendError(
+      "JWT secret is not configured",
+      ERROR_CODES.UNAUTHORIZED,
+      401
+    );
+  }
 
-    return NextResponse.json(sendError(errorMessage, code, status), {
-      status,
-    });
+  const secretKey = new TextEncoder().encode(jwtSecret);
+
+  let decoded: { id: string; email: string; role: string };
+  try {
+    const { payload } = await jwtVerify(token, secretKey);
+    decoded = {
+      id: String(payload.id ?? ""),
+      email: String(payload.email ?? ""),
+      role: String(payload.role ?? ""),
+    };
+
+    if (!decoded.id || !decoded.email || !decoded.role) {
+      return sendError("INVALID_TOKEN", ERROR_CODES.INVALID_TOKEN, 403);
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Invalid token";
+    const isExpired =
+      typeof message === "string" &&
+      (message.includes("exp") ||
+        message.toLowerCase().includes("expired") ||
+        message === "JWTExpired");
+
+    const status = isExpired ? 401 : 403;
+    const code = isExpired
+      ? ERROR_CODES.TOKEN_EXPIRED
+      : ERROR_CODES.INVALID_TOKEN;
+    return sendError(message, code, status);
   }
 
   // Enforce role-based access control
@@ -129,13 +152,10 @@ export function middleware(req: NextRequest) {
     protectedRoute.requireRole &&
     decoded.role !== protectedRoute.requireRole
   ) {
-    return NextResponse.json(
-      sendError(
-        `Access denied. This route requires ${protectedRoute.requireRole} role.`,
-        ERROR_CODES.FORBIDDEN,
-        403
-      ),
-      { status: 403 }
+    return sendError(
+      `Access denied. This route requires ${protectedRoute.requireRole} role.`,
+      ERROR_CODES.FORBIDDEN,
+      403
     );
   }
 

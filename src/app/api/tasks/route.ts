@@ -1,36 +1,42 @@
-import { NextRequest } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { sendSuccess } from '@/lib/responseHandler';
-import { handleError, handleValidationError, handleNotFound } from '@/lib/errorHandler';
-import { logger } from '@/lib/logger';
+import { NextRequest } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { sendSuccess } from "@/lib/responseHandler";
+import {
+  handleError,
+  handleValidationError,
+  handleNotFound,
+} from "@/lib/errorHandler";
+import { logger } from "@/lib/logger";
+import { revalidateTag } from "next/cache";
 
 export async function POST(req: NextRequest) {
-  const context = { route: '/api/tasks', method: 'POST' };
+  const context = { route: "/api/tasks", method: "POST" };
 
   try {
     const body = await req.json();
     const { title, description, projectId } = body;
 
     // Validate required fields
-    if (!title || typeof title !== 'string') {
+    if (!title || typeof title !== "string") {
       return handleValidationError(
-        'Title is required and must be a string',
+        "Title is required and must be a string",
         context
       );
     }
 
-    if (!projectId || typeof projectId !== 'string') {
+    if (!projectId || typeof projectId !== "string") {
       return handleValidationError(
-        'ProjectId is required and must be a string',
+        "ProjectId is required and must be a string",
         context
       );
     }
 
-    if (description !== undefined && description !== null && typeof description !== 'string') {
-      return handleValidationError(
-        'Description must be a string',
-        context
-      );
+    if (
+      description !== undefined &&
+      description !== null &&
+      typeof description !== "string"
+    ) {
+      return handleValidationError("Description must be a string", context);
     }
 
     // Check if project exists
@@ -39,7 +45,7 @@ export async function POST(req: NextRequest) {
     });
 
     if (!project) {
-      return handleNotFound('Project', { ...context, projectId });
+      return handleNotFound("Project", { ...context, projectId });
     }
 
     // Create task
@@ -60,13 +66,17 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    logger.info('Task created successfully', {
+    logger.info("Task created successfully", {
       route: context.route,
       taskId: newTask.id,
       projectId: newTask.projectId,
     });
 
-    return sendSuccess(newTask, 'Task created successfully', 201);
+    // Invalidate relevant caches after a successful write
+    revalidateTag(`project:${newTask.projectId}`, { expire: 0 });
+    revalidateTag(`projectTasks:${newTask.projectId}`, { expire: 0 });
+
+    return sendSuccess(newTask, "Task created successfully", 201);
   } catch (error) {
     return handleError(error, context);
   }

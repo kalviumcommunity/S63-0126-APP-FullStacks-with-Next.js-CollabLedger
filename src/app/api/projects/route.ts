@@ -1,47 +1,61 @@
-import { NextRequest } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { sendSuccess } from '@/lib/responseHandler';
-import { handleError, handleValidationError, handleNotFound } from '@/lib/errorHandler';
-import { logger } from '@/lib/logger';
+import { NextRequest } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { sendSuccess } from "@/lib/responseHandler";
+import {
+  handleError,
+  handleValidationError,
+  handleNotFound,
+} from "@/lib/errorHandler";
+import { logger } from "@/lib/logger";
+import { revalidateTag, unstable_cache } from "next/cache";
 
 export async function GET(req: NextRequest) {
-  const context = { route: '/api/projects', method: 'GET' };
+  const context = { route: "/api/projects", method: "GET" };
 
   try {
     const { searchParams } = new URL(req.url);
-    const page = parseInt(searchParams.get('page') || '1', 10);
-    const limit = parseInt(searchParams.get('limit') || '10', 10);
+    const page = parseInt(searchParams.get("page") || "1", 10);
+    const limit = parseInt(searchParams.get("limit") || "10", 10);
 
     // Validate pagination params
     if (page < 1 || limit < 1 || limit > 100) {
       return handleValidationError(
-        'Invalid pagination parameters. Page and limit must be positive, limit must not exceed 100.',
+        "Invalid pagination parameters. Page and limit must be positive, limit must not exceed 100.",
         context
       );
     }
 
-    const skip = (page - 1) * limit;
+    const getProjectsCached = unstable_cache(
+      async (pageArg: number, limitArg: number) => {
+        const skip = (pageArg - 1) * limitArg;
 
-    // Get total count
-    const total = await prisma.project.count();
+        const [total, projects] = await Promise.all([
+          prisma.project.count(),
+          prisma.project.findMany({
+            skip,
+            take: limitArg,
+            select: {
+              id: true,
+              title: true,
+              description: true,
+              status: true,
+              ownerId: true,
+              createdAt: true,
+              updatedAt: true,
+            },
+            orderBy: { createdAt: "desc" },
+          }),
+        ]);
 
-    // Get projects with pagination
-    const projects = await prisma.project.findMany({
-      skip,
-      take: limit,
-      select: {
-        id: true,
-        title: true,
-        description: true,
-        status: true,
-        ownerId: true,
-        createdAt: true,
-        updatedAt: true,
+        return { total, projects };
       },
-      orderBy: { createdAt: 'desc' },
-    });
+      ["api-projects-list"],
+      { revalidate: 30, tags: ["projects"] }
+    );
 
-    logger.info('Projects retrieved successfully', {
+    const { total, projects } = await getProjectsCached(page, limit);
+
+    logger.info("Projects retrieved successfully", {
       route: context.route,
       page,
       limit,
@@ -58,7 +72,7 @@ export async function GET(req: NextRequest) {
           pages: Math.ceil(total / limit),
         },
       },
-      'Projects retrieved successfully',
+      "Projects retrieved successfully",
       200
     );
   } catch (error) {
@@ -67,30 +81,30 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const context = { route: '/api/projects', method: 'POST' };
+  const context = { route: "/api/projects", method: "POST" };
 
   try {
     const body = await req.json();
     const { title, description, ownerId } = body;
 
     // Validate required fields
-    if (!title || typeof title !== 'string') {
+    if (!title || typeof title !== "string") {
       return handleValidationError(
-        'Title is required and must be a string',
+        "Title is required and must be a string",
         context
       );
     }
 
-    if (!description || typeof description !== 'string') {
+    if (!description || typeof description !== "string") {
       return handleValidationError(
-        'Description is required and must be a string',
+        "Description is required and must be a string",
         context
       );
     }
 
-    if (!ownerId || typeof ownerId !== 'string') {
+    if (!ownerId || typeof ownerId !== "string") {
       return handleValidationError(
-        'OwnerId is required and must be a string',
+        "OwnerId is required and must be a string",
         context
       );
     }
@@ -101,7 +115,7 @@ export async function POST(req: NextRequest) {
     });
 
     if (!owner) {
-      return handleNotFound('Owner', { ...context, ownerId });
+      return handleNotFound("Owner", { ...context, ownerId });
     }
 
     // Create project
@@ -122,13 +136,17 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    logger.info('Project created successfully', {
+    logger.info("Project created successfully", {
       route: context.route,
       projectId: newProject.id,
       ownerId: newProject.ownerId,
     });
 
-    return sendSuccess(newProject, 'Project created successfully', 201);
+    // Invalidate relevant caches after a successful write
+    revalidateTag("projects", { expire: 0 });
+    revalidateTag(`project:${newProject.id}`, { expire: 0 });
+
+    return sendSuccess(newProject, "Project created successfully", 201);
   } catch (error) {
     return handleError(error, context);
   }

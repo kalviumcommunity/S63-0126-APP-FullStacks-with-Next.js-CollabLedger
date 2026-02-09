@@ -1296,3 +1296,44 @@ handleError(error, {
 - ✅ Type-safe error handling with TypeScript interfaces
 - ✅ Ready for integration with monitoring (Datadog, Sentry, CloudWatch, etc.)
 
+---
+
+## Redis Caching Layer
+
+This project includes a **Redis-based caching layer** for API responses to reduce repeated database reads and improve response time under load.
+
+### Why caching is used
+- **Reduces database load**: read-heavy endpoints (like listing users) can avoid repeated Prisma queries for identical requests.
+- **Improves latency**: a cached response is served from memory (Redis) instead of hitting Postgres.
+- **Better scalability**: the API can handle more traffic with less database contention.
+
+### Redis setup explanation
+- **Local**: run a Redis server on `localhost:6379`.
+- **Docker Compose**: this repo’s `docker-compose.yml` includes a `redis` service (port `6379`).
+
+### Cache-aside strategy explanation
+We use the **cache-aside (lazy loading)** pattern:
+1. **Read path (GET)**: the API checks Redis first.
+   - If a value exists, it’s a **Cache Hit** and the API returns it immediately.
+   - If not, it’s a **Cache Miss** and the API queries Postgres via Prisma, then stores the result in Redis.
+2. **Write path (POST/PATCH)**: after a successful database mutation, the API deletes the relevant cache key so the next GET repopulates it.
+
+### TTL policy
+- **Key**: `users:list`
+- **TTL**: **60 seconds**
+
+### Cache invalidation strategy
+- After a user is created or updated, the API deletes the **`users:list`** key (best-effort invalidation). This forces the next read to refresh from the database.
+
+### Reflection: stale data and cache coherence risks
+Caching introduces the risk of **stale reads**:
+- If invalidation fails or is incomplete, clients may see outdated data until the TTL expires.
+- If multiple list keys exist (e.g., pagination variants), invalidating only `users:list` can leave other cached pages stale until they expire.
+
+In production, you’d typically use a stronger invalidation strategy (key versioning, tag sets, or event-driven invalidation) depending on correctness requirements.
+
+### Expected latency improvement (cold vs cached request)
+Typical expectations for a read-heavy list route:
+- **Cold request (cache miss)**: Postgres + Prisma query + serialization (often tens of milliseconds, depending on dataset and connection state).
+- **Cached request (cache hit)**: Redis GET + JSON parse (often a few milliseconds).
+
