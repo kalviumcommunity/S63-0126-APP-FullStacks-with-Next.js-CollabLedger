@@ -11,10 +11,12 @@ interface Product {
 
 async function fetchProducts(): Promise<Product[]> {
   try {
-    // In a real app, this would fetch from your database or API
+    // Fetch from local API endpoint
     // The page will use cached data until revalidation occurs
-    const response = await fetch('https://api.example.com/products', {
+    const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000/api';
+    const response = await fetch(`${baseUrl}/projects`, {
       next: { revalidate: 60 }, // Optional: explicitly set cache time
+      method: 'GET',
     });
 
     if (!response.ok) {

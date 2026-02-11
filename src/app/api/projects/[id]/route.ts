@@ -1,19 +1,21 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { sendSuccess } from '@/lib/responseHandler';
+import { handleError, handleValidationError, handleNotFound } from '@/lib/errorHandler';
+import { logger } from '@/lib/logger';
 
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const context = { route: '/api/projects/[id]', method: 'GET' };
+
   try {
     const { id } = await params;
 
     // Validate ID
     if (!id || typeof id !== 'string') {
-      return NextResponse.json(
-        { success: false, error: 'Invalid project ID' },
-        { status: 400 }
-      );
+      return handleValidationError('Invalid project ID', context);
     }
 
     // Get project
@@ -31,22 +33,17 @@ export async function GET(
     });
 
     if (!project) {
-      return NextResponse.json(
-        { success: false, error: 'Project not found' },
-        { status: 404 }
-      );
+      return handleNotFound('Project', { ...context, projectId: id });
     }
 
-    return NextResponse.json(
-      { success: true, data: project },
-      { status: 200 }
-    );
+    logger.info('Project retrieved successfully', {
+      route: context.route,
+      projectId: id,
+    });
+
+    return sendSuccess(project, 'Project retrieved successfully', 200);
   } catch (error) {
-    console.error('Get project error:', error);
-    return NextResponse.json(
-      { success: false, error: 'Internal server error' },
-      { status: 500 }
-    );
+    return handleError(error, context);
   }
 }
 
@@ -54,6 +51,8 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const context = { route: '/api/projects/[id]', method: 'PATCH' };
+
   try {
     const { id } = await params;
     const body = await req.json();
@@ -61,40 +60,28 @@ export async function PATCH(
 
     // Validate ID
     if (!id || typeof id !== 'string') {
-      return NextResponse.json(
-        { success: false, error: 'Invalid project ID' },
-        { status: 400 }
-      );
+      return handleValidationError('Invalid project ID', context);
     }
 
     // Validate input (at least one field must be provided)
     if (title === undefined && description === undefined && status === undefined) {
-      return NextResponse.json(
-        { success: false, error: 'At least one field is required to update' },
-        { status: 400 }
+      return handleValidationError(
+        'At least one field is required to update',
+        context
       );
     }
 
     // Validate fields if provided
     if (title !== undefined && typeof title !== 'string') {
-      return NextResponse.json(
-        { success: false, error: 'Title must be a string' },
-        { status: 400 }
-      );
+      return handleValidationError('Title must be a string', context);
     }
 
     if (description !== undefined && typeof description !== 'string') {
-      return NextResponse.json(
-        { success: false, error: 'Description must be a string' },
-        { status: 400 }
-      );
+      return handleValidationError('Description must be a string', context);
     }
 
     if (status !== undefined && !['IDEA', 'IN_PROGRESS', 'COMPLETED'].includes(status)) {
-      return NextResponse.json(
-        { success: false, error: 'Invalid status value' },
-        { status: 400 }
-      );
+      return handleValidationError('Invalid status value', context);
     }
 
     // Check if project exists
@@ -103,10 +90,7 @@ export async function PATCH(
     });
 
     if (!existingProject) {
-      return NextResponse.json(
-        { success: false, error: 'Project not found' },
-        { status: 404 }
-      );
+      return handleNotFound('Project', { ...context, projectId: id });
     }
 
     // Update project
@@ -129,16 +113,15 @@ export async function PATCH(
       },
     });
 
-    return NextResponse.json(
-      { success: true, data: updatedProject },
-      { status: 200 }
-    );
+    logger.info('Project updated successfully', {
+      route: context.route,
+      projectId: id,
+      updatedFields: Object.keys(updateData),
+    });
+
+    return sendSuccess(updatedProject, 'Project updated successfully', 200);
   } catch (error) {
-    console.error('Update project error:', error);
-    return NextResponse.json(
-      { success: false, error: 'Internal server error' },
-      { status: 500 }
-    );
+    return handleError(error, context);
   }
 }
 
@@ -146,15 +129,14 @@ export async function DELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const context = { route: '/api/projects/[id]', method: 'DELETE' };
+
   try {
     const { id } = await params;
 
     // Validate ID
     if (!id || typeof id !== 'string') {
-      return NextResponse.json(
-        { success: false, error: 'Invalid project ID' },
-        { status: 400 }
-      );
+      return handleValidationError('Invalid project ID', context);
     }
 
     // Check if project exists
@@ -163,10 +145,7 @@ export async function DELETE(
     });
 
     if (!existingProject) {
-      return NextResponse.json(
-        { success: false, error: 'Project not found' },
-        { status: 404 }
-      );
+      return handleNotFound('Project', { ...context, projectId: id });
     }
 
     // Delete project (cascades to tasks)
@@ -174,15 +153,17 @@ export async function DELETE(
       where: { id },
     });
 
-    return NextResponse.json(
-      { success: true, data: { message: 'Project deleted successfully' } },
-      { status: 200 }
+    logger.info('Project deleted successfully', {
+      route: context.route,
+      projectId: id,
+    });
+
+    return sendSuccess(
+      { message: 'Project deleted successfully' },
+      'Project deleted successfully',
+      200
     );
   } catch (error) {
-    console.error('Delete project error:', error);
-    return NextResponse.json(
-      { success: false, error: 'Internal server error' },
-      { status: 500 }
-    );
+    return handleError(error, context);
   }
 }

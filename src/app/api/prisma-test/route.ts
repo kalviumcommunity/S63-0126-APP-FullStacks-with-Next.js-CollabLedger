@@ -1,17 +1,24 @@
 import { prisma } from '../../../lib/prisma';
+import { sendSuccess } from '../../../lib/responseHandler';
+import { handleError } from '../../../lib/errorHandler';
 
 export const runtime = 'nodejs';
 
 export async function GET() {
-  const users = await prisma.user.findMany({
-    take: 1,
-    select: { id: true },
-  });
+  const context = { route: '/api/prisma-test', method: 'GET' };
 
-  console.log('Prisma test query OK', { userCount: users.length });
+  try {
+    const users = await prisma.user.findMany({
+      take: 1,
+      select: { id: true },
+    });
 
-  return Response.json({
-    status: 'ok',
-    userCount: users.length,
-  });
+    return sendSuccess(
+      { userCount: users.length },
+      'Prisma database connection successful',
+      200
+    );
+  } catch (error) {
+    return handleError(error, context);
+  }
 }

@@ -1,35 +1,35 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { sendSuccess, sendError } from '@/lib/responseHandler';
-import { ERROR_CODES } from '@/lib/errorCodes';
+import { sendSuccess } from '@/lib/responseHandler';
+import { handleError, handleValidationError, handleNotFound } from '@/lib/errorHandler';
+import { logger } from '@/lib/logger';
 
 export async function POST(req: NextRequest) {
+  const context = { route: '/api/tasks', method: 'POST' };
+
   try {
     const body = await req.json();
     const { title, description, projectId } = body;
 
     // Validate required fields
     if (!title || typeof title !== 'string') {
-      return sendError(
+      return handleValidationError(
         'Title is required and must be a string',
-        ERROR_CODES.INVALID_INPUT,
-        400
+        context
       );
     }
 
     if (!projectId || typeof projectId !== 'string') {
-      return sendError(
+      return handleValidationError(
         'ProjectId is required and must be a string',
-        ERROR_CODES.INVALID_INPUT,
-        400
+        context
       );
     }
 
     if (description !== undefined && description !== null && typeof description !== 'string') {
-      return sendError(
+      return handleValidationError(
         'Description must be a string',
-        ERROR_CODES.INVALID_INPUT,
-        400
+        context
       );
     }
 
@@ -39,11 +39,7 @@ export async function POST(req: NextRequest) {
     });
 
     if (!project) {
-      return sendError(
-        'Project not found',
-        ERROR_CODES.PROJECT_NOT_FOUND,
-        404
-      );
+      return handleNotFound('Project', { ...context, projectId });
     }
 
     // Create task
@@ -64,17 +60,14 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    return sendSuccess(
-      newTask,
-      'Task created successfully',
-      201
-    );
+    logger.info('Task created successfully', {
+      route: context.route,
+      taskId: newTask.id,
+      projectId: newTask.projectId,
+    });
+
+    return sendSuccess(newTask, 'Task created successfully', 201);
   } catch (error) {
-    console.error('Create task error:', error);
-    return sendError(
-      'Failed to create task',
-      ERROR_CODES.DATABASE_ERROR,
-      500
-    );
+    return handleError(error, context);
   }
 }

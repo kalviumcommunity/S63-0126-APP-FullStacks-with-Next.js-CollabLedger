@@ -1,9 +1,12 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { sendSuccess, sendError } from '@/lib/responseHandler';
-import { ERROR_CODES } from '@/lib/errorCodes';
+import { sendSuccess } from '@/lib/responseHandler';
+import { handleError, handleValidationError, handleNotFound } from '@/lib/errorHandler';
+import { logger } from '@/lib/logger';
 
 export async function GET(req: NextRequest) {
+  const context = { route: '/api/projects', method: 'GET' };
+
   try {
     const { searchParams } = new URL(req.url);
     const page = parseInt(searchParams.get('page') || '1', 10);
@@ -11,10 +14,9 @@ export async function GET(req: NextRequest) {
 
     // Validate pagination params
     if (page < 1 || limit < 1 || limit > 100) {
-      return sendError(
+      return handleValidationError(
         'Invalid pagination parameters. Page and limit must be positive, limit must not exceed 100.',
-        ERROR_CODES.INVALID_PAGINATION,
-        400
+        context
       );
     }
 
@@ -39,6 +41,13 @@ export async function GET(req: NextRequest) {
       orderBy: { createdAt: 'desc' },
     });
 
+    logger.info('Projects retrieved successfully', {
+      route: context.route,
+      page,
+      limit,
+      totalCount: total,
+    });
+
     return sendSuccess(
       {
         projects,
@@ -53,42 +62,36 @@ export async function GET(req: NextRequest) {
       200
     );
   } catch (error) {
-    console.error('Get projects error:', error);
-    return sendError(
-      'Failed to retrieve projects',
-      ERROR_CODES.DATABASE_ERROR,
-      500
-    );
+    return handleError(error, context);
   }
 }
 
 export async function POST(req: NextRequest) {
+  const context = { route: '/api/projects', method: 'POST' };
+
   try {
     const body = await req.json();
     const { title, description, ownerId } = body;
 
     // Validate required fields
     if (!title || typeof title !== 'string') {
-      return sendError(
+      return handleValidationError(
         'Title is required and must be a string',
-        ERROR_CODES.INVALID_INPUT,
-        400
+        context
       );
     }
 
     if (!description || typeof description !== 'string') {
-      return sendError(
+      return handleValidationError(
         'Description is required and must be a string',
-        ERROR_CODES.INVALID_INPUT,
-        400
+        context
       );
     }
 
     if (!ownerId || typeof ownerId !== 'string') {
-      return sendError(
+      return handleValidationError(
         'OwnerId is required and must be a string',
-        ERROR_CODES.INVALID_INPUT,
-        400
+        context
       );
     }
 
@@ -98,11 +101,7 @@ export async function POST(req: NextRequest) {
     });
 
     if (!owner) {
-      return sendError(
-        'Owner not found',
-        ERROR_CODES.USER_NOT_FOUND,
-        404
-      );
+      return handleNotFound('Owner', { ...context, ownerId });
     }
 
     // Create project
@@ -123,17 +122,14 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    return sendSuccess(
-      newProject,
-      'Project created successfully',
-      201
-    );
+    logger.info('Project created successfully', {
+      route: context.route,
+      projectId: newProject.id,
+      ownerId: newProject.ownerId,
+    });
+
+    return sendSuccess(newProject, 'Project created successfully', 201);
   } catch (error) {
-    console.error('Create project error:', error);
-    return sendError(
-      'Failed to create project',
-      ERROR_CODES.DATABASE_ERROR,
-      500
-    );
+    return handleError(error, context);
   }
 }

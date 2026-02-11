@@ -37,7 +37,7 @@ async function waitForServer(retries = 10) {
     try {
       await fetch(BASE)
       return true
-    } catch (e) {
+    } catch {
       await new Promise(r => setTimeout(r, 1000))
     }
   }
