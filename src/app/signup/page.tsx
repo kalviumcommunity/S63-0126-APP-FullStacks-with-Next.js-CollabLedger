@@ -3,6 +3,9 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { Inter } from "next/font/google";
+
+const inter = Inter({ subsets: ["latin"] });
 
 export default function SignupPage() {
   const router = useRouter();
@@ -45,6 +48,7 @@ export default function SignupPage() {
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: "include", // Ensure cookies are sent/received
         body: JSON.stringify({
           name: formData.name,
           email: formData.email,
@@ -54,6 +58,10 @@ export default function SignupPage() {
 
       const data = await response.json();
       console.log("[SIGNUP] response status:", response.status);
+      console.log(
+        "[SIGNUP] response headers:",
+        Object.fromEntries(response.headers.entries())
+      );
       console.log("[SIGNUP] response body:", data);
 
       if (!response.ok) {
@@ -62,8 +70,17 @@ export default function SignupPage() {
         return;
       }
 
+      // Backend sets HTTP-only cookie, no need to manually store anything
+      console.log("[SIGNUP] \u2705 Signup successful!");
+      console.log(
+        "[SIGNUP] \u27a1\ufe0f Redirecting to /dashboard in 100ms..."
+      );
+
+      // Small delay to ensure cookie is set before navigation
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
       // Redirect to dashboard on success (user is automatically logged in)
-      console.log("[SIGNUP] success, redirecting to dashboard");
+      console.log("[SIGNUP] \ud83d\ude80 Navigating to dashboard now");
       router.push("/dashboard");
     } catch (err) {
       console.error("[SIGNUP ERROR] Network error:", err);
@@ -75,122 +92,163 @@ export default function SignupPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
-        <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900 dark:text-white">
-            Create your account
-          </h2>
-          <p className="mt-2 text-center text-sm text-gray-600 dark:text-gray-400">
-            Or{" "}
-            <Link
-              href="/login"
-              className="font-medium text-blue-600 hover:text-blue-500"
-            >
-              sign in to your existing account
-            </Link>
-          </p>
-        </div>
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          {error && (
-            <div className="rounded-md bg-red-50 dark:bg-red-900/20 p-4">
-              <p className="text-sm text-red-800 dark:text-red-400">{error}</p>
-            </div>
-          )}
-          <div className="rounded-md shadow-sm space-y-4">
-            <div>
-              <label htmlFor="name" className="sr-only">
-                Full name
-              </label>
-              <input
-                id="name"
-                name="name"
-                type="text"
-                required
-                className="appearance-none relative block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-white dark:bg-gray-800 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-                placeholder="Full name"
-                value={formData.name}
-                onChange={(e) => {
-                  console.log("[SIGNUP] name updated:", e.target.value);
-                  setFormData({ ...formData, name: e.target.value });
-                }}
-              />
-            </div>
-            <div>
-              <label htmlFor="email" className="sr-only">
-                Email address
-              </label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                autoComplete="email"
-                required
-                className="appearance-none relative block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-white dark:bg-gray-800 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-                placeholder="Email address"
-                value={formData.email}
-                onChange={(e) => {
-                  console.log("[SIGNUP] email updated:", e.target.value);
-                  setFormData({ ...formData, email: e.target.value });
-                }}
-              />
-            </div>
-            <div>
-              <label htmlFor="password" className="sr-only">
-                Password
-              </label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                autoComplete="new-password"
-                required
-                className="appearance-none relative block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-white dark:bg-gray-800 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-                placeholder="Password"
-                value={formData.password}
-                onChange={(e) => {
-                  console.log(
-                    "[SIGNUP] password updated (length):",
-                    e.target.value.length
-                  );
-                  setFormData({ ...formData, password: e.target.value });
-                }}
-              />
-            </div>
-            <div>
-              <label htmlFor="confirmPassword" className="sr-only">
-                Confirm Password
-              </label>
-              <input
-                id="confirmPassword"
-                name="confirmPassword"
-                type="password"
-                autoComplete="new-password"
-                required
-                className="appearance-none relative block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-white dark:bg-gray-800 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-                placeholder="Confirm Password"
-                value={formData.confirmPassword}
-                onChange={(e) => {
-                  console.log(
-                    "[SIGNUP] confirmPassword updated (length):",
-                    e.target.value.length
-                  );
-                  setFormData({ ...formData, confirmPassword: e.target.value });
-                }}
-              />
-            </div>
+    <div
+      className={`relative min-h-screen flex items-center bg-gray-900 overflow-hidden ${inter.className}`}
+    >
+      {/* Background Image - Full Screen */}
+      <div
+        className="absolute inset-0 z-0 bg-cover bg-center bg-no-repeat"
+        style={{ backgroundImage: "url('/assets/image2.png')" }}
+      >
+        {/* Subtle overlay to ensure text readability against any background brightness */}
+        <div className="absolute inset-0 bg-black/20"></div>
+      </div>
+
+      {/* Main Content Container - Aligned Left */}
+      <div className="relative z-10 w-full min-h-screen flex items-center justify-start px-4 sm:px-8 md:px-16 lg:px-24">
+        {/* Glassmorphism Card */}
+        <div className="w-full max-w-xl p-10 bg-white/15 backdrop-blur-md border border-white/20 rounded-[20px] shadow-lg">
+          <div className="mb-8">
+            <h2 className="text-3xl font-bold text-white tracking-tight">
+              Create Account
+            </h2>
+            <p className="mt-2 text-base text-gray-100/90">
+              Join CollabLedger and start making an impact.
+            </p>
           </div>
 
-          <div>
-            <button
-              type="submit"
-              disabled={loading}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
-            >
-              {loading ? "Creating account..." : "Create account"}
-            </button>
-          </div>
-        </form>
+          <form className="space-y-6" onSubmit={handleSubmit}>
+            {error && (
+              <div className="rounded-lg bg-red-500/10 border border-red-500/20 p-4">
+                <p className="text-sm font-medium text-red-100">{error}</p>
+              </div>
+            )}
+
+            <div className="space-y-5">
+              <div>
+                <label
+                  htmlFor="name"
+                  className="block text-sm font-medium text-gray-100 mb-1.5 shadow-sm"
+                >
+                  Full Name
+                </label>
+                <input
+                  id="name"
+                  name="name"
+                  type="text"
+                  required
+                  className="appearance-none block w-full px-4 py-3 bg-gray-50 border border-transparent text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
+                  placeholder="John Doe"
+                  value={formData.name}
+                  onChange={(e) => {
+                    console.log("[SIGNUP] name updated:", e.target.value);
+                    setFormData({ ...formData, name: e.target.value });
+                  }}
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="email"
+                  className="block text-sm font-medium text-gray-100 mb-1.5 shadow-sm"
+                >
+                  Email Address
+                </label>
+                <input
+                  id="email"
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                  required
+                  className="appearance-none block w-full px-4 py-3 bg-gray-50 border border-transparent text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
+                  placeholder="name@example.com"
+                  value={formData.email}
+                  onChange={(e) => {
+                    console.log("[SIGNUP] email updated:", e.target.value);
+                    setFormData({ ...formData, email: e.target.value });
+                  }}
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="password"
+                  className="block text-sm font-medium text-gray-100 mb-1.5 shadow-sm"
+                >
+                  Password
+                </label>
+                <input
+                  id="password"
+                  name="password"
+                  type="password"
+                  autoComplete="new-password"
+                  required
+                  className="appearance-none block w-full px-4 py-3 bg-gray-50 border border-transparent text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
+                  placeholder="••••••••"
+                  value={formData.password}
+                  onChange={(e) => {
+                    console.log(
+                      "[SIGNUP] password updated (length):",
+                      e.target.value.length
+                    );
+                    setFormData({ ...formData, password: e.target.value });
+                  }}
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="confirmPassword"
+                  className="block text-sm font-medium text-gray-100 mb-1.5 shadow-sm"
+                >
+                  Confirm Password
+                </label>
+                <input
+                  id="confirmPassword"
+                  name="confirmPassword"
+                  type="password"
+                  autoComplete="new-password"
+                  required
+                  className="appearance-none block w-full px-4 py-3 bg-gray-50 border border-transparent text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
+                  placeholder="••••••••"
+                  value={formData.confirmPassword}
+                  onChange={(e) => {
+                    console.log(
+                      "[SIGNUP] confirmPassword updated (length):",
+                      e.target.value.length
+                    );
+                    setFormData({
+                      ...formData,
+                      confirmPassword: e.target.value,
+                    });
+                  }}
+                />
+              </div>
+            </div>
+
+            <div className="pt-4">
+              <button
+                type="submit"
+                disabled={loading}
+                className="group relative w-full flex justify-center py-3.5 px-4 border border-transparent text-base font-bold rounded-lg text-white bg-green-600 hover:bg-green-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-all shadow-lg disabled:opacity-70 disabled:cursor-not-allowed"
+              >
+                {loading ? "Creating Account..." : "Create Account"}
+              </button>
+            </div>
+
+            <div className="mt-6 text-center">
+              <p className="text-sm text-gray-100">
+                Already have an account?{" "}
+                <Link
+                  href="/login"
+                  className="font-bold text-white hover:text-green-300 transition-colors underline decoration-transparent hover:decoration-green-300"
+                >
+                  Login
+                </Link>
+              </p>
+            </div>
+          </form>
+        </div>
       </div>
     </div>
   );

@@ -1,32 +1,40 @@
-import { NextRequest } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { sendSuccess } from '@/lib/responseHandler';
-import { handleError, handleValidationError, handleNotFound } from '@/lib/errorHandler';
-import { logger } from '@/lib/logger';
+import { NextRequest } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { sendSuccess } from "@/lib/responseHandler";
+import {
+  handleError,
+  handleValidationError,
+  handleNotFound,
+} from "@/lib/errorHandler";
+import { logger } from "@/lib/logger";
+import { unstable_cache } from "next/cache";
 
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const context = { route: '/api/projects/[id]/tasks', method: 'GET' };
+  const context = { route: "/api/projects/[id]/tasks", method: "GET" };
 
   try {
     const { id } = await params;
     const { searchParams } = new URL(req.url);
-    const page = parseInt(searchParams.get('page') || '1', 10);
-    const limit = parseInt(searchParams.get('limit') || '10', 10);
+    const page = parseInt(searchParams.get("page") || "1", 10);
+    const limit = parseInt(searchParams.get("limit") || "10", 10);
 
     // Validate ID
-    if (!id || typeof id !== 'string') {
-      return handleValidationError('Invalid project ID', { ...context, projectId: id });
+    if (!id || typeof id !== "string") {
+      return handleValidationError("Invalid project ID", {
+        ...context,
+        projectId: id,
+      });
     }
 
     // Validate pagination params
     if (page < 1 || limit < 1 || limit > 100) {
-      return handleValidationError(
-        'Invalid pagination parameters',
-        { ...context, projectId: id }
-      );
+      return handleValidationError("Invalid pagination parameters", {
+        ...context,
+        projectId: id,
+      });
     }
 
     // Check if project exists
@@ -35,34 +43,43 @@ export async function GET(
     });
 
     if (!project) {
-      return handleNotFound('Project', { ...context, projectId: id });
+      return handleNotFound("Project", { ...context, projectId: id });
     }
 
-    const skip = (page - 1) * limit;
+    const getProjectTasksCached = unstable_cache(
+      async (projectId: string, pageArg: number, limitArg: number) => {
+        const skip = (pageArg - 1) * limitArg;
 
-    // Get total count of tasks for this project
-    const total = await prisma.task.count({
-      where: { projectId: id },
-    });
+        const [total, tasks] = await Promise.all([
+          prisma.task.count({
+            where: { projectId },
+          }),
+          prisma.task.findMany({
+            where: { projectId },
+            skip,
+            take: limitArg,
+            select: {
+              id: true,
+              title: true,
+              description: true,
+              status: true,
+              projectId: true,
+              createdAt: true,
+              updatedAt: true,
+            },
+            orderBy: { createdAt: "desc" },
+          }),
+        ]);
 
-    // Get tasks with pagination
-    const tasks = await prisma.task.findMany({
-      where: { projectId: id },
-      skip,
-      take: limit,
-      select: {
-        id: true,
-        title: true,
-        description: true,
-        status: true,
-        projectId: true,
-        createdAt: true,
-        updatedAt: true,
+        return { total, tasks };
       },
-      orderBy: { createdAt: 'desc' },
-    });
+      ["api-project-tasks", id],
+      { revalidate: 30, tags: [`project:${id}`, `projectTasks:${id}`] }
+    );
 
-    logger.info('Project tasks retrieved successfully', {
+    const { total, tasks } = await getProjectTasksCached(id, page, limit);
+
+    logger.info("Project tasks retrieved successfully", {
       route: context.route,
       projectId: id,
       page,
@@ -80,7 +97,7 @@ export async function GET(
           pages: Math.ceil(total / limit),
         },
       },
-      'Project tasks retrieved successfully',
+      "Project tasks retrieved successfully",
       200
     );
   } catch (error) {
