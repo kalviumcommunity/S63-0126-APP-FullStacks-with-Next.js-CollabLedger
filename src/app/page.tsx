@@ -1,52 +1,6 @@
 export default function Home() {
   return (
-    <div className="min-h-screen bg-white text-black">
-      {/* Navigation Bar */}
-      <nav className="sticky top-0 z-20 border-b border-black/10 bg-white/95 backdrop-blur">
-        <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-4">
-          <div className="flex items-center gap-3 text-lg font-semibold tracking-tight">
-            <img
-              src="/collabledger-logo.png"
-              alt="CollabLedger logo"
-              className="h-8 w-8"
-            />
-            <span>CollabLedger</span>
-          </div>
-          <div className="hidden items-center gap-6 text-sm font-medium md:flex">
-            <a className="hover:text-black/70" href="#home">
-              Home
-            </a>
-            <a className="hover:text-black/70" href="#about">
-              About
-            </a>
-            <a className="hover:text-black/70" href="#team">
-              Team
-            </a>
-            <a className="hover:text-black/70" href="#projects">
-              Projects
-            </a>
-            <a className="hover:text-black/70" href="#contact">
-              Contact
-            </a>
-          </div>
-          <div className="flex items-center gap-3">
-            <a
-              className="rounded-full border border-black px-4 py-2 text-sm font-semibold hover:bg-black hover:text-white"
-              href="/signup"
-            >
-              Sign Up
-            </a>
-            <a
-              className="rounded-full border border-black px-4 py-2 text-sm font-semibold hover:bg-black hover:text-white"
-              href="/login"
-            >
-              Log In
-            </a>
-          </div>
-        </div>
-      </nav>
-
-      <main className="mx-auto flex w-full max-w-6xl flex-col gap-20 px-6 pb-24 pt-10">
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-20 pb-24 pt-4">
         {/* Hero Section */}
         <section
           id="home"
@@ -229,7 +183,6 @@ export default function Home() {
             Contact Us
           </button>
         </section>
-      </main>
 
       {/* Footer */}
       <footer className="bg-black py-10 text-white">
