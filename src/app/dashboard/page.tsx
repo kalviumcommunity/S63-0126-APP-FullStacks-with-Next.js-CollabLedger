@@ -1,13 +1,14 @@
-// Dynamic Rendering (SSR)
-// This page is rendered on every request with fresh data
-// The dynamic export forces the page to render server-side for every user request
+/**
+ * Dashboard Page - SSR with reusable components
+ * Demonstrates LayoutWrapper, Button, and Card usage.
+ */
+import { Card } from "@/components";
+import DashboardActions from "./DashboardActions";
+
 export const dynamic = "force-dynamic";
 
 async function fetchMetrics() {
-  console.log("[DASHBOARD] fetching metrics started");
   try {
-    // Fetch from local API endpoint
-    // The cache: 'no-store' ensures fresh data on every request
     const baseUrl =
       process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3000/api";
     const response = await fetch(`${baseUrl}/health`, {
@@ -15,17 +16,9 @@ async function fetchMetrics() {
       method: "GET",
     });
 
-    if (!response.ok) {
-      console.error("[DASHBOARD ERROR] API check failed:", response.status);
-      throw new Error("Failed to fetch metrics");
-    }
-
-    const data = await response.json();
-    console.log("[DASHBOARD] metrics received:", data);
-    return data;
-  } catch (error) {
-    console.error("[DASHBOARD ERROR] Fetch failed, using mock data:", error);
-    // Return mock data when API is unavailable
+    if (!response.ok) throw new Error("Failed to fetch metrics");
+    return response.json();
+  } catch {
     return {
       activeUsers: Math.floor(Math.random() * 10000),
       serverTime: new Date().toISOString(),
@@ -36,131 +29,86 @@ async function fetchMetrics() {
 }
 
 export default async function DashboardPage() {
-  console.log("[DASHBOARD] page rendering");
   const metrics = await fetchMetrics();
   const fetchTime = new Date().toLocaleTimeString();
-  console.log("[DASHBOARD] rendering with fetchTime:", fetchTime);
 
   return (
-    <main className="min-h-screen bg-linear-to-br from-green-50 to-emerald-100 p-8">
-      <div className="max-w-4xl mx-auto">
-        <h1 className="text-4xl font-bold text-emerald-900 mb-6">
-          Dashboard - Server-Side Rendering (SSR)
-        </h1>
+    <div className="max-w-4xl">
+      <h1 className="mb-6 text-4xl font-bold text-black">
+        Dashboard - Server-Side Rendering (SSR)
+      </h1>
 
-        <div className="bg-white rounded-lg shadow-lg p-8 mb-6">
-          <h2 className="text-2xl font-semibold text-emerald-800 mb-4">
-            Rendering Strategy: Dynamic
-          </h2>
-          <p className="text-gray-700 leading-relaxed mb-4">
-            This page uses <strong>Server-Side Rendering (SSR)</strong> with{" "}
-            <code className="bg-gray-100 px-2 py-1 rounded text-red-600">
-              export const dynamic = &apos;force-dynamic&apos;
-            </code>
-            . The page is rendered on the server for every single user request,
-            ensuring the most up-to-date data.
-          </p>
+      <Card title="Rendering Strategy: Dynamic" className="mb-6">
+        <p className="mb-4 leading-relaxed text-black/70">
+          This page uses <strong>Server-Side Rendering (SSR)</strong> with{" "}
+          <code className="rounded bg-neutral-100 px-2 py-1 text-sm">
+            export const dynamic = &apos;force-dynamic&apos;
+          </code>
+          . The page is rendered on the server for every request.
+        </p>
+        <ul className="space-y-2 text-sm text-black/80">
+          <li>✓ Rendered on every request</li>
+          <li>✓ Fresh data with cache: &apos;no-store&apos;</li>
+          <li>✓ No caching between requests</li>
+          <li>✓ Personalization based on user context</li>
+        </ul>
+      </Card>
 
-          <div className="bg-green-50 border-l-4 border-green-500 p-4 rounded">
-            <p className="text-green-900 font-semibold mb-2">
-              Key Characteristics:
-            </p>
-            <ul className="text-green-800 space-y-2">
-              <li>✓ Rendered on every request</li>
-              <li>✓ Fresh data fetched with cache: &apos;no-store&apos;</li>
-              <li>✓ No caching between requests</li>
-              <li>✓ Personalization based on user context</li>
-              <li>✓ Slightly slower response time than SSG</li>
-              <li>✓ Higher server load</li>
-              <li>✓ Always shows current data</li>
-            </ul>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-          <div className="bg-white rounded-lg shadow-lg p-6">
-            <h3 className="text-lg font-semibold text-emerald-800 mb-3">
-              Live Metrics
-            </h3>
-            <div className="space-y-4">
-              <div>
-                <p className="text-gray-600 text-sm">Active Users</p>
-                <p className="text-3xl font-bold text-emerald-600">
-                  {metrics.activeUsers}
-                </p>
-              </div>
-              <div>
-                <p className="text-gray-600 text-sm">Total Requests</p>
-                <p className="text-3xl font-bold text-emerald-600">
-                  {metrics.requestCount}
-                </p>
-              </div>
-              <div>
-                <p className="text-gray-600 text-sm">Avg Response Time</p>
-                <p className="text-3xl font-bold text-emerald-600">
-                  {metrics.averageResponseTime}ms
-                </p>
-              </div>
+      <div className="mb-6 grid grid-cols-1 gap-6 md:grid-cols-2">
+        <Card title="Live Metrics">
+          <div className="space-y-4">
+            <div>
+              <p className="text-sm text-black/60">Active Users</p>
+              <p className="text-3xl font-bold text-black">
+                {metrics.activeUsers}
+              </p>
             </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow-lg p-6">
-            <h3 className="text-lg font-semibold text-emerald-800 mb-3">
-              Request Information
-            </h3>
-            <div className="space-y-3">
-              <div>
-                <p className="text-gray-600 text-sm">Fetched at</p>
-                <p className="text-lg font-semibold text-emerald-700">
-                  {fetchTime}
-                </p>
-              </div>
-              <div>
-                <p className="text-gray-600 text-sm">Server Time</p>
-                <p className="text-lg font-semibold text-emerald-700">
-                  {metrics.serverTime}
-                </p>
-              </div>
-              <p className="text-sm text-gray-500 mt-4">
-                Refresh the page to see updated metrics with fresh server data.
+            <div>
+              <p className="text-sm text-black/60">Total Requests</p>
+              <p className="text-3xl font-bold text-black">
+                {metrics.requestCount}
+              </p>
+            </div>
+            <div>
+              <p className="text-sm text-black/60">Avg Response Time</p>
+              <p className="text-3xl font-bold text-black">
+                {metrics.averageResponseTime}ms
               </p>
             </div>
           </div>
-        </div>
+        </Card>
 
-        <div className="bg-white rounded-lg shadow-lg p-8">
-          <h2 className="text-2xl font-semibold text-emerald-800 mb-4">
-            Use Cases for SSR
-          </h2>
-          <ul className="text-gray-700 space-y-3">
-            <li className="flex items-start">
-              <span className="text-emerald-600 font-bold mr-3">•</span>
-              <span>Real-time dashboards and analytics</span>
-            </li>
-            <li className="flex items-start">
-              <span className="text-emerald-600 font-bold mr-3">•</span>
-              <span>Personalized user experiences</span>
-            </li>
-            <li className="flex items-start">
-              <span className="text-emerald-600 font-bold mr-3">•</span>
-              <span>User authentication-based content</span>
-            </li>
-            <li className="flex items-start">
-              <span className="text-emerald-600 font-bold mr-3">•</span>
-              <span>High-frequency data updates</span>
-            </li>
-            <li className="flex items-start">
-              <span className="text-emerald-600 font-bold mr-3">•</span>
-              <span>APIs requiring user context or headers</span>
-            </li>
-          </ul>
-        </div>
-
-        <p className="text-sm text-gray-500 mt-8 text-center">
-          This page is rendered fresh on every request. Metrics update in
-          real-time.
-        </p>
+        <Card title="Request Information">
+          <div className="space-y-3">
+            <div>
+              <p className="text-sm text-black/60">Fetched at</p>
+              <p className="font-semibold text-black">{fetchTime}</p>
+            </div>
+            <div>
+              <p className="text-sm text-black/60">Server Time</p>
+              <p className="font-semibold text-black">{metrics.serverTime}</p>
+            </div>
+            <p className="mt-4 text-sm text-black/50">
+              Refresh the page to see updated metrics.
+            </p>
+          </div>
+        </Card>
       </div>
-    </main>
+
+      <Card title="Use Cases for SSR">
+        <ul className="space-y-3 text-black/80">
+          <li>• Real-time dashboards and analytics</li>
+          <li>• Personalized user experiences</li>
+          <li>• User authentication-based content</li>
+          <li>• High-frequency data updates</li>
+        </ul>
+      </Card>
+
+      <DashboardActions />
+
+      <p className="mt-8 text-center text-sm text-black/50">
+        This page uses LayoutWrapper, Button, and Card components.
+      </p>
+    </div>
   );
 }
