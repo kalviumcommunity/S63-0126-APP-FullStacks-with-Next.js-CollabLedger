@@ -102,6 +102,217 @@ sequenceDiagram
     Middleware->>Dashboard: Access granted
 ```
 
+## 📋 Form Validation & State Management
+
+CollabLedger implements robust form validation using **React Hook Form** and **Zod** for type-safe schema validation.
+
+### Form Validation Stack
+
+- **React Hook Form**: Manages form state, validation, and submission
+- **Zod**: Type-safe schema validation
+- **@hookform/resolvers**: Connects Zod schemas to React Hook Form
+
+### Installation
+
+```bash
+npm install react-hook-form zod @hookform/resolvers
+```
+
+### Validation Schema Architecture
+
+Zod schemas define validation rules and TypeScript types in a single source of truth:
+
+**Example: Signup Schema** (`src/schemas/signupSchema.ts`)
+
+```typescript
+import { z } from "zod";
+
+export const signupSchema = z
+  .object({
+    name: z.string().min(3, "Name must be at least 3 characters long"),
+    email: z.string().email("Please enter a valid email address"),
+    password: z.string().min(6, "Password must be at least 6 characters long"),
+    confirmPassword: z.string(),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Passwords do not match",
+    path: ["confirmPassword"],
+  });
+
+export type SignupFormData = z.infer<typeof signupSchema>;
+```
+
+**Key Features:**
+- ✅ String length validation
+- ✅ Email format validation
+- ✅ Password confirmation matching
+- ✅ Automatic TypeScript type generation
+- ✅ Custom error messages
+
+### React Hook Form Integration
+
+**Example: Signup Page** (`src/app/signup/page.tsx`)
+
+```typescript
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { signupSchema, SignupFormData } from "@/schemas/signupSchema";
+
+const {
+  register,
+  handleSubmit,
+  formState: { errors, isSubmitting },
+} = useForm<SignupFormData>({
+  resolver: zodResolver(signupSchema),
+});
+```
+
+**Benefits:**
+- Client-side validation before API calls
+- Real-time error feedback
+- Prevents invalid form submissions
+- Type-safe form data
+
+### Reusable Form Components
+
+**FormInput Component** (`src/components/FormInput.tsx`)
+
+```typescript
+interface FormInputProps {
+  label: string;
+  name: string;
+  type?: string;
+  register: any;
+  error?: string;
+}
+
+export default function FormInput({
+  label,
+  name,
+  type = "text",
+  register,
+  error,
+}: FormInputProps) {
+  return (
+    <div className="mb-3">
+      <label htmlFor={name} className="block mb-1 font-medium">
+        {label}
+      </label>
+      <input
+        id={name}
+        type={type}
+        {...register(name)}
+        aria-invalid={!!error}
+        className="w-full border p-2 rounded"
+      />
+      {error && <p className="text-red-500 text-sm mt-1">{error}</p>}
+    </div>
+  );
+}
+```
+
+**Usage:**
+```tsx
+<FormInput 
+  label="Name" 
+  name="name" 
+  register={register} 
+  error={errors.name?.message} 
+/>
+```
+
+**Advantages:**
+- ✅ Consistent styling across forms
+- ✅ Built-in error display
+- ✅ Accessibility features (ARIA labels)
+- ✅ Reduces code duplication
+- ✅ Easy to maintain and update
+
+### Accessibility Features
+
+Our form implementation prioritizes accessibility:
+
+1. **Semantic HTML**
+   - `<label>` elements properly linked to inputs via `htmlFor`
+   - Descriptive label text for screen readers
+
+2. **ARIA Attributes**
+   - `aria-invalid={!!error}` indicates validation state
+   - Screen readers announce errors automatically
+
+3. **Keyboard Navigation**
+   - Full keyboard support (Tab, Enter, Escape)
+   - Focus visible indicators
+   - Logical tab order
+
+4. **Visual Feedback**
+   - Error messages displayed below fields
+   - Red text for errors
+   - Disabled state for submit button during submission
+
+### Validation Flow
+
+```mermaid
+sequenceDiagram
+    User->>Form: Enter data
+    Form->>React Hook Form: Track field changes
+    User->>Form: Submit
+    React Hook Form->>Zod: Validate data
+    alt Valid Data
+        Zod->>React Hook Form: Pass
+        React Hook Form->>API: Submit data
+        API->>User: Success
+    else Invalid Data
+        Zod->>React Hook Form: Errors
+        React Hook Form->>Form: Display errors
+        Form->>User: Show validation messages
+    end
+```
+
+### Validation Examples
+
+**Scenario Testing:**
+
+1. **Empty Fields** → "Name must be at least 3 characters long"
+2. **Invalid Email** → "Please enter a valid email address"
+3. **Short Password** → "Password must be at least 6 characters long"
+4. **Password Mismatch** → "Passwords do not match"
+5. **Valid Data** → Form submits successfully
+
+**Console Success Output:**
+```
+Form Submitted: { 
+  name: "Alice Johnson", 
+  email: "alice@example.com", 
+  password: "secure123" 
+}
+```
+
+### Why This Approach?
+
+**Scalability:**
+- Easy to add new forms with consistent validation
+- Reusable components reduce development time
+- Centralized validation logic
+
+**Type Safety:**
+- Zod generates TypeScript types automatically
+- Compile-time error detection
+- Better IDE autocomplete
+
+**User Experience:**
+- Instant validation feedback
+- Clear error messages
+- Prevents invalid submissions
+- Accessible to all users
+
+**Maintainability:**
+- Single source of truth for validation rules
+- Easy to update validation logic
+- Testable schemas and components
+
+---
+
 ## 🎨 Dynamic Routes
 
 ### `/projects/[id]` - Project Detail Page

@@ -4,41 +4,35 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Inter } from "next/font/google";
-
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { signupSchema, SignupFormData } from "@/schemas/signupSchema";
 const inter = Inter({ subsets: ["latin"] });
 
 export default function SignupPage() {
   const router = useRouter();
+  const [error, setError] = useState("");
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm<SignupFormData>({
+    resolver: zodResolver(signupSchema),
+  });
 
   if (typeof window !== "undefined") {
     console.log("[SIGNUP] mounted");
   }
 
-  const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    password: "",
-    confirmPassword: "",
-  });
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
-
-  const handleSubmit = async (e: any) => {
-    e.preventDefault();
+  const onSubmit = async (data: SignupFormData) => {
     console.log("[SIGNUP] form state before submit:", {
-      ...formData,
+      ...data,
       password: "***",
       confirmPassword: "***",
     });
     setError("");
 
-    if (formData.password !== formData.confirmPassword) {
-      console.error("[SIGNUP ERROR] Validation:", "Passwords do not match");
-      setError("Passwords do not match");
-      return;
-    }
-
-    setLoading(true);
     console.log("[SIGNUP] loading:", true);
 
     try {
@@ -50,43 +44,40 @@ export default function SignupPage() {
         },
         credentials: "include", // Ensure cookies are sent/received
         body: JSON.stringify({
-          name: formData.name,
-          email: formData.email,
-          password: formData.password,
+          name: data.name,
+          email: data.email,
+          password: data.password,
         }),
       });
 
-      const data = await response.json();
+      const responseData = await response.json();
       console.log("[SIGNUP] response status:", response.status);
       console.log(
         "[SIGNUP] response headers:",
         Object.fromEntries(response.headers.entries())
       );
-      console.log("[SIGNUP] response body:", data);
+      console.log("[SIGNUP] response body:", responseData);
 
       if (!response.ok) {
-        console.error("[SIGNUP ERROR] API error:", data.message);
-        setError(data.message || "Signup failed");
+        console.error("[SIGNUP ERROR] API error:", responseData.message);
+        setError(responseData.message || "Signup failed");
         return;
       }
 
       // Backend sets HTTP-only cookie, no need to manually store anything
-      console.log("[SIGNUP] \u2705 Signup successful!");
-      console.log(
-        "[SIGNUP] \u27a1\ufe0f Redirecting to /dashboard in 100ms..."
-      );
+      console.log("[SIGNUP] ✅ Signup successful!");
+      console.log("[SIGNUP] ➡️ Redirecting to /dashboard in 100ms...");
 
       // Small delay to ensure cookie is set before navigation
       await new Promise((resolve) => setTimeout(resolve, 100));
 
       // Redirect to dashboard on success (user is automatically logged in)
-      console.log("[SIGNUP] \ud83d\ude80 Navigating to dashboard now");
+      console.log("[SIGNUP] 🚀 Navigating to dashboard now");
       router.push("/dashboard");
     } catch (err) {
       console.error("[SIGNUP ERROR] Network error:", err);
       setError("An error occurred. Please try again.");
     } finally {
-      setLoading(false);
       console.log("[SIGNUP] loading:", false);
     }
   };
@@ -117,7 +108,7 @@ export default function SignupPage() {
             </p>
           </div>
 
-          <form className="space-y-6" onSubmit={handleSubmit}>
+          <form className="space-y-6" onSubmit={handleSubmit(onSubmit)}>
             {error && (
               <div className="rounded-lg bg-red-500/10 border border-red-500/20 p-4">
                 <p className="text-sm font-medium text-red-100">{error}</p>
@@ -134,17 +125,17 @@ export default function SignupPage() {
                 </label>
                 <input
                   id="name"
-                  name="name"
                   type="text"
-                  required
+                  {...register("name")}
+                  aria-invalid={!!errors.name}
                   className="appearance-none block w-full px-4 py-3 bg-gray-50 border border-transparent text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
                   placeholder="John Doe"
-                  value={formData.name}
-                  onChange={(e) => {
-                    console.log("[SIGNUP] name updated:", e.target.value);
-                    setFormData({ ...formData, name: e.target.value });
-                  }}
                 />
+                {errors.name && (
+                  <p className="text-red-300 text-sm mt-1.5">
+                    {errors.name.message}
+                  </p>
+                )}
               </div>
 
               <div>
@@ -156,18 +147,18 @@ export default function SignupPage() {
                 </label>
                 <input
                   id="email"
-                  name="email"
                   type="email"
                   autoComplete="email"
-                  required
+                  {...register("email")}
+                  aria-invalid={!!errors.email}
                   className="appearance-none block w-full px-4 py-3 bg-gray-50 border border-transparent text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
                   placeholder="name@example.com"
-                  value={formData.email}
-                  onChange={(e) => {
-                    console.log("[SIGNUP] email updated:", e.target.value);
-                    setFormData({ ...formData, email: e.target.value });
-                  }}
                 />
+                {errors.email && (
+                  <p className="text-red-300 text-sm mt-1.5">
+                    {errors.email.message}
+                  </p>
+                )}
               </div>
 
               <div>
@@ -179,21 +170,18 @@ export default function SignupPage() {
                 </label>
                 <input
                   id="password"
-                  name="password"
                   type="password"
                   autoComplete="new-password"
-                  required
+                  {...register("password")}
+                  aria-invalid={!!errors.password}
                   className="appearance-none block w-full px-4 py-3 bg-gray-50 border border-transparent text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
                   placeholder="••••••••"
-                  value={formData.password}
-                  onChange={(e) => {
-                    console.log(
-                      "[SIGNUP] password updated (length):",
-                      e.target.value.length
-                    );
-                    setFormData({ ...formData, password: e.target.value });
-                  }}
                 />
+                {errors.password && (
+                  <p className="text-red-300 text-sm mt-1.5">
+                    {errors.password.message}
+                  </p>
+                )}
               </div>
 
               <div>
@@ -205,34 +193,28 @@ export default function SignupPage() {
                 </label>
                 <input
                   id="confirmPassword"
-                  name="confirmPassword"
                   type="password"
                   autoComplete="new-password"
-                  required
+                  {...register("confirmPassword")}
+                  aria-invalid={!!errors.confirmPassword}
                   className="appearance-none block w-full px-4 py-3 bg-gray-50 border border-transparent text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
                   placeholder="••••••••"
-                  value={formData.confirmPassword}
-                  onChange={(e) => {
-                    console.log(
-                      "[SIGNUP] confirmPassword updated (length):",
-                      e.target.value.length
-                    );
-                    setFormData({
-                      ...formData,
-                      confirmPassword: e.target.value,
-                    });
-                  }}
                 />
+                {errors.confirmPassword && (
+                  <p className="text-red-300 text-sm mt-1.5">
+                    {errors.confirmPassword.message}
+                  </p>
+                )}
               </div>
             </div>
 
             <div className="pt-4">
               <button
                 type="submit"
-                disabled={loading}
+                disabled={isSubmitting}
                 className="group relative w-full flex justify-center py-3.5 px-4 border border-transparent text-base font-bold rounded-lg text-white bg-green-600 hover:bg-green-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-all shadow-lg disabled:opacity-70 disabled:cursor-not-allowed"
               >
-                {loading ? "Creating Account..." : "Create Account"}
+                {isSubmitting ? "Creating Account..." : "Create Account"}
               </button>
             </div>
 

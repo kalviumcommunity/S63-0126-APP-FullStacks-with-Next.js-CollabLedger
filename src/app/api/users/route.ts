@@ -125,11 +125,18 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { email, name } = body;
+    const { email, name, password } = body;
 
     if (!email || typeof email !== "string") {
       return handleValidationError(
         "Email is required and must be a string",
+        context
+      );
+    }
+
+    if (!password || typeof password !== "string") {
+      return handleValidationError(
+        "Password is required and must be a string",
         context
       );
     }
@@ -147,6 +154,7 @@ export async function POST(req: NextRequest) {
       data: {
         email,
         name: name ?? null,
+        password,
       },
       select: {
         id: true,
