@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Inter } from "next/font/google";
+import { showSuccessToast, showErrorToast } from "@/lib/toastHelpers";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -19,7 +20,6 @@ export default function LoginPage() {
     email: "",
     password: "",
   });
-  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: any) => {
@@ -31,16 +31,15 @@ export default function LoginPage() {
     const password = formData.password.trim();
 
     if (!email || !password) {
-      setError("Please enter both email and password");
+      showErrorToast("Please enter both email and password");
       return;
     }
 
     if (!email.includes("@")) {
-      setError("Please enter a valid email address");
+      showErrorToast("Please enter a valid email address");
       return;
     }
 
-    setError("");
     setLoading(true);
     console.log("[LOGIN] loading:", true);
 
@@ -64,13 +63,13 @@ export default function LoginPage() {
       console.log("[LOGIN] response body:", data);
 
       if (!response.ok) {
-        console.error("[LOGIN ERROR] API error:", data.message);
-        setError(data.message || "Login failed");
+        showErrorToast(data.message || "Login failed");
         return;
       }
 
       // Backend sets HTTP-only cookie, no need to manually store anything
-      console.log("[LOGIN] \u2705 Login successful!");
+      console.log("[LOGIN] ✅ Login successful!");
+      showSuccessToast("Welcome back! Redirecting to dashboard...");
       console.log("[LOGIN] \u27a1\ufe0f Redirecting to /dashboard in 100ms...");
 
       // Small delay to ensure cookie is set before navigation
@@ -81,7 +80,7 @@ export default function LoginPage() {
       router.push("/dashboard");
     } catch (err) {
       console.error("[LOGIN ERROR] Network/System error:", err);
-      setError("An error occurred. Please try again.");
+      showErrorToast("An error occurred. Please try again.");
     } finally {
       setLoading(false);
       console.log("[LOGIN] loading:", false);
@@ -114,12 +113,6 @@ export default function LoginPage() {
           </div>
 
           <form className="space-y-8" onSubmit={handleSubmit}>
-            {error && (
-              <div className="rounded-lg bg-red-500/10 border border-red-500/20 p-4">
-                <p className="text-sm text-red-200">{error}</p>
-              </div>
-            )}
-
             <div className="space-y-6">
               <div>
                 <label

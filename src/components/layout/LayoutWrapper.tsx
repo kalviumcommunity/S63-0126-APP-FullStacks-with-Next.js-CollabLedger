@@ -1,10 +1,9 @@
 /**
  * LayoutWrapper Component
- * Wraps Header, Sidebar, and page content.
- * Provides consistent flex layout and spacing across all routes.
+ * Wraps Header and page content.
+ * Provides consistent layout across all routes.
  */
 import Header from "./Header";
-import Sidebar from "./Sidebar";
 
 interface LayoutWrapperProps {
   children: React.ReactNode;
@@ -12,14 +11,11 @@ interface LayoutWrapperProps {
 
 export default function LayoutWrapper({ children }: LayoutWrapperProps) {
   return (
-    <div className="flex min-h-screen flex-col bg-white text-black">
+    <div className="min-h-screen bg-white">
       <Header />
-      <div className="flex flex-1">
-        <Sidebar />
-        <main className="flex-1 p-6" role="main">
-          {children}
-        </main>
-      </div>
+      <main className="pt-16">
+        {children}
+      </main>
     </div>
   );
 }

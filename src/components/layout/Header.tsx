@@ -1,71 +1,36 @@
 /**
  * Header Component
- * Top navigation bar with logo, nav links, and CTAs.
- * Semantic <header>, responsive, accessible.
+ * Purple navigation bar with ExScore theme
+ * Appears on all pages
  */
 import Link from "next/link";
 
-const navLinks = [
-  { href: "/", label: "Home" },
-  { href: "/about", label: "About" },
-  { href: "/dashboard", label: "Team" },
-  { href: "/products", label: "Projects" },
-  { href: "#contact", label: "Contact" },
-];
-
 export default function Header() {
   return (
-    <header
-      className="sticky top-0 z-20 border-b border-black/10 bg-white/95 backdrop-blur"
-      role="banner"
-    >
-      <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-4">
-        <Link
-          href="/"
-          className="flex items-center gap-3 text-lg font-semibold tracking-tight text-black hover:text-black/80"
-          aria-label="CollabLedger home"
-        >
-          <img
-            src="/collabledger-logo.png"
-            alt=""
-            width={32}
-            height={32}
-            className="h-8 w-8"
-            aria-hidden
-          />
-          <span>CollabLedger</span>
-        </Link>
-
-        <nav
-          className="hidden items-center gap-6 text-sm font-medium md:flex"
-          aria-label="Main navigation"
-        >
-          {navLinks.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className="text-black hover:text-black/70 focus:outline-none focus:ring-2 focus:ring-black/20 focus:ring-offset-2 rounded px-2 py-1"
-            >
-              {link.label}
-            </Link>
-          ))}
-        </nav>
-
-        <div className="flex items-center gap-3">
+    <nav className="fixed top-0 left-0 right-0 z-50 bg-purple-900 shadow-md">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex justify-between items-center h-16">
+          <Link href="/" className="flex items-center gap-2">
+            <div className="w-10 h-10 bg-linear-to-br from-green-400 to-green-600 rounded-lg flex items-center justify-center">
+              <span className="text-white font-bold text-xl">C</span>
+            </div>
+            <span className="text-white text-xl font-bold">CollabLedger</span>
+          </Link>
+          <div className="hidden md:flex items-center gap-8">
+            <a href="/#home" className="text-green-400 font-semibold hover:text-green-300 transition">HOME</a>
+            <a href="/#about" className="text-white hover:text-green-400 transition">ABOUT US</a>
+            <Link href="/dashboard" className="text-white hover:text-green-400 transition">DASHBOARD</Link>
+            <a href="/#projects" className="text-white hover:text-green-400 transition">PROJECTS</a>
+            <a href="/#contact" className="text-white hover:text-green-400 transition">CONTACT</a>
+          </div>
           <Link
             href="/signup"
-            className="rounded-full border border-black px-4 py-2 text-sm font-semibold text-black hover:bg-black hover:text-white focus:outline-none focus:ring-2 focus:ring-black/20 focus:ring-offset-2 transition-colors"
+            className="bg-green-400 hover:bg-green-500 text-purple-900 font-semibold px-6 py-2 rounded-full transition shadow-lg"
           >
-            Sign Up
-          </Link>
-          <Link
-            href="/login"
-            className="rounded-full border border-black bg-black px-4 py-2 text-sm font-semibold text-white hover:bg-black/90 focus:outline-none focus:ring-2 focus:ring-black/20 focus:ring-offset-2 transition-colors"
-          >
-            Log In
+            Support Us
           </Link>
         </div>
       </div>
-    </header>
+    </nav>
   );
 }

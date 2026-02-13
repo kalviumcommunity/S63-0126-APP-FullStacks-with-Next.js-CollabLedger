@@ -78,8 +78,6 @@ const PUBLIC_PAGE_ROUTES = [
   /^\/$/, // Home page
   /^\/login/,
   /^\/signup/,
-  /^\/about/,
-  /^\/products/,
 ];
 
 /**

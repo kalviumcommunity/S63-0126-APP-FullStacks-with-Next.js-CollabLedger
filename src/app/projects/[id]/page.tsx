@@ -3,6 +3,14 @@
 import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
+import { CreateTaskModal } from "@/components/modals/CreateTaskModal";
+import { EditTaskModal } from "@/components/modals/EditTaskModal";
+import { EditProjectModal } from "@/components/modals/EditProjectModal";
+import { ConfirmDialog } from "@/components/modals/ConfirmDialog";
+import { LoadingOverlay } from "@/components/ui/LoadingOverlay";
+import { useConfirm } from "@/hooks/useConfirm";
+import { showSuccessToast, showErrorToast } from "@/lib/toastHelpers";
+import { Edit2, Trash2 } from "lucide-react";
 
 // Types based on Prisma schema
 interface Project {
@@ -58,17 +66,39 @@ export default function ProjectDetailPage() {
 
   const [loading, setLoading] = useState(true);
   const [project, setProject] = useState<Project | null>(null);
-  const [error, setError] = useState("");
+  const [userId, setUserId] = useState<string>("");
+  const [isCreateTaskModalOpen, setIsCreateTaskModalOpen] = useState(false);
+  const [isEditProjectModalOpen, setIsEditProjectModalOpen] = useState(false);
+  const [isEditTaskModalOpen, setIsEditTaskModalOpen] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<any>(null);
+  const { confirm, confirmProps } = useConfirm();
 
   useEffect(() => {
     // Middleware already handles auth - just fetch data
+    fetchCurrentUser();
     fetchProject(projectId);
   }, [projectId, router]);
+
+  const fetchCurrentUser = async () => {
+    try {
+      const response = await fetch("/api/auth/me", {
+        credentials: "include",
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.data?.id) {
+          setUserId(data.data.id);
+        }
+      }
+    } catch (err) {
+      console.error("[PROJECT DETAIL] Failed to fetch current user:", err);
+    }
+  };
 
   const fetchProject = async (id: string) => {
     try {
       setLoading(true);
-      setError("");
 
       // Cookie is sent automatically
       const response = await fetch(`/api/projects/${id}`, {
@@ -76,53 +106,103 @@ export default function ProjectDetailPage() {
       });
 
       if (response.status === 404) {
-        setError("Project not found");
+        showErrorToast("Project not found");
         setProject(null);
         setLoading(false);
         return;
       }
 
       if (!response.ok) {
-        throw new Error("Failed to fetch project details");
+        showErrorToast("Failed to fetch project details");
+        setLoading(false);
+        return;
       }
 
       const data = await response.json();
       setProject(data.data);
     } catch (err) {
       console.error("[PROJECT DETAIL ERROR]", err);
-      setError(err instanceof Error ? err.message : "Failed to load project");
+      showErrorToast(err instanceof Error ? err.message : "Failed to load project");
     } finally {
       setLoading(false);
     }
   };
 
+  const handleDeleteProject = async () => {
+    const confirmed = await confirm({
+      title: "Delete Project",
+      message: "Are you sure you want to delete this project? This action cannot be undone.",
+      confirmText: "Delete",
+      cancelText: "Cancel",
+      variant: "danger",
+    });
+
+    if (!confirmed) return;
+
+    try {
+      const response = await fetch(`/api/projects/${projectId}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to delete project");
+      }
+
+      showSuccessToast("Project deleted successfully");
+      router.push("/dashboard");
+    } catch {
+      showErrorToast("Failed to delete project");
+    }
+  };
+
+  const handleDeleteTask = async (taskId: string) => {
+    const confirmed = await confirm({
+      title: "Delete Task",
+      message: "Are you sure you want to delete this task? This action cannot be undone.",
+      confirmText: "Delete",
+      cancelText: "Cancel",
+      variant: "danger",
+    });
+
+    if (!confirmed) return;
+
+    try {
+      const response = await fetch(`/api/tasks/${taskId}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to delete task");
+      }
+
+      showSuccessToast("Task deleted successfully");
+      fetchProject(projectId);
+    } catch {
+      showErrorToast("Failed to delete task");
+    }
+  };
+
+  const handleEditTask = (task: any) => {
+    setSelectedTask(task);
+    setIsEditTaskModalOpen(true);
+  };
+
   if (loading) {
-    return (
-      <div className="min-h-screen bg-linear-to-br from-green-50 via-emerald-50 to-teal-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="inline-block h-16 w-16 animate-spin rounded-full border-4 border-solid border-emerald-600 border-r-transparent shadow-lg"></div>
-          <p className="mt-6 text-lg font-medium text-gray-700 animate-pulse">
-            Loading project...
-          </p>
-        </div>
-      </div>
-    );
+    return <LoadingOverlay message="Loading project..." fullScreen />;
   }
 
-  if (error || !project) {
+  if (!project) {
     return (
       <div className="min-h-screen bg-linear-to-br from-green-50 via-emerald-50 to-teal-50 flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white rounded-3xl shadow-2xl p-12 text-center">
           <div className="w-24 h-24 bg-red-100 rounded-full mx-auto flex items-center justify-center mb-6">
             <span className="text-5xl">❌</span>
           </div>
-          <h2 className="text-3xl font-bold text-gray-900 mb-4">
-            {error === "Project not found" ? "Project Not Found" : "Error"}
-          </h2>
+          <h2 className="text-3xl font-bold text-gray-900 mb-4">Project Not Found</h2>
           <p className="text-gray-600 mb-8">
-            {error === "Project not found"
-              ? "The project you're looking for doesn't exist or has been removed."
-              : error || "Something went wrong while loading the project."}
+            The project you&apos;re looking for doesn&apos;t exist or has been removed.
           </p>
           <Link
             href="/dashboard"
@@ -141,9 +221,7 @@ export default function ProjectDetailPage() {
     day: "numeric",
   });
 
-  // For now, we don't know the current user ID from cookies
-  // Could be added via server-side props or API call if needed
-  const isOwner = false; // Placeholder - backend should handle ownership checks
+  const isOwner = userId === project.ownerId;
 
   return (
     <div className="min-h-screen bg-linear-to-br from-green-50 via-emerald-50 to-teal-50">
@@ -191,8 +269,29 @@ export default function ProjectDetailPage() {
                   {project.description}
                 </p>
               </div>
-              <div className="w-20 h-20 bg-linear-to-br from-emerald-400 to-green-400 rounded-2xl flex items-center justify-center shadow-lg shrink-0">
-                <span className="text-5xl">📊</span>
+              <div className="flex flex-col gap-3">
+                <div className="w-20 h-20 bg-linear-to-br from-emerald-400 to-green-400 rounded-2xl flex items-center justify-center shadow-lg">
+                  <span className="text-5xl">📊</span>
+                </div>
+                {isOwner && (
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setIsEditProjectModalOpen(true)}
+                      className="flex-1 px-4 py-2 text-sm font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors flex items-center justify-center gap-2"
+                      aria-label="Edit project"
+                    >
+                      <Edit2 className="h-4 w-4" />
+                      Edit
+                    </button>
+                    <button
+                      onClick={handleDeleteProject}
+                      className="px-4 py-2 text-sm font-semibold text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors"
+                      aria-label="Delete project"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -222,7 +321,10 @@ export default function ProjectDetailPage() {
           <div className="flex items-center justify-between mb-8">
             <h2 className="text-3xl font-bold text-gray-900">Tasks</h2>
             {isOwner && (
-              <button className="px-6 py-3 text-white bg-linear-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 rounded-xl transition-all duration-300 hover:shadow-lg font-semibold">
+              <button 
+                onClick={() => setIsCreateTaskModalOpen(true)}
+                className="px-6 py-3 text-white bg-linear-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 rounded-xl transition-all duration-300 hover:shadow-lg font-semibold"
+              >
                 + Add Task
               </button>
             )}
@@ -242,7 +344,10 @@ export default function ProjectDetailPage() {
                   : "This project doesn't have any tasks yet."}
               </p>
               {isOwner && (
-                <button className="px-8 py-4 text-white bg-linear-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 rounded-xl transition-all duration-300 hover:shadow-xl font-semibold inline-flex items-center gap-2">
+                <button 
+                  onClick={() => setIsCreateTaskModalOpen(true)}
+                  className="px-8 py-4 text-white bg-linear-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 rounded-xl transition-all duration-300 hover:shadow-xl font-semibold inline-flex items-center gap-2"
+                >
                   <span className="text-2xl">+</span>
                   Create First Task
                 </button>
@@ -259,7 +364,27 @@ export default function ProjectDetailPage() {
                     <h3 className="text-lg font-bold text-gray-900 flex-1">
                       {task.title}
                     </h3>
-                    <StatusBadge status={task.status} />
+                    <div className="flex items-center gap-2">
+                      <StatusBadge status={task.status} />
+                      {isOwner && (
+                        <div className="flex gap-1">
+                          <button
+                            onClick={() => handleEditTask(task)}
+                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                            aria-label="Edit task"
+                          >
+                            <Edit2 className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteTask(task.id)}
+                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            aria-label="Delete task"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                   {task.description && (
                     <p className="text-gray-600 text-sm mb-4 line-clamp-3">
@@ -280,6 +405,30 @@ export default function ProjectDetailPage() {
           )}
         </div>
       </main>
+
+      {/* Modals */}
+      <CreateTaskModal
+        isOpen={isCreateTaskModalOpen}
+        onClose={() => setIsCreateTaskModalOpen(false)}
+        onSuccess={() => fetchProject(projectId)}
+        projectId={projectId}
+      />
+      <EditTaskModal
+        isOpen={isEditTaskModalOpen}
+        onClose={() => {
+          setIsEditTaskModalOpen(false);
+          setSelectedTask(null);
+        }}
+        onSuccess={() => fetchProject(projectId)}
+        task={selectedTask}
+      />
+      <EditProjectModal
+        isOpen={isEditProjectModalOpen}
+        onClose={() => setIsEditProjectModalOpen(false)}
+        onSuccess={() => fetchProject(projectId)}
+        project={project}
+      />
+      <ConfirmDialog {...confirmProps} />
     </div>
   );
 }

@@ -2,12 +2,13 @@
  * Button Component
  * Reusable, accessible button with primary/secondary variants.
  */
-import { type ButtonHTMLAttributes } from "react";
+import { type ButtonHTMLAttributes, type ReactNode } from "react";
 
 export type ButtonVariant = "primary" | "secondary";
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  label: string;
+  label?: string;
+  children?: ReactNode;
   onClick?: () => void;
   variant?: ButtonVariant;
 }
@@ -21,6 +22,7 @@ const variantStyles: Record<ButtonVariant, string> = {
 
 export default function Button({
   label,
+  children,
   onClick,
   variant = "primary",
   type = "button",
@@ -37,7 +39,7 @@ export default function Button({
       aria-label={label}
       {...rest}
     >
-      {label}
+      {children || label}
     </button>
   );
 }
