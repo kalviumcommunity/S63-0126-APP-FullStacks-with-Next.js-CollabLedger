@@ -3,6 +3,11 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { CreateProjectModal } from "@/components/modals/CreateProjectModal";
+import { ConfirmDialog } from "@/components/modals/ConfirmDialog";
+import { LoadingOverlay } from "@/components/ui/LoadingOverlay";
+import { useConfirm } from "@/hooks/useConfirm";
+import { showSuccessToast, showErrorToast } from "@/lib/toastHelpers";
 
 // Types based on Prisma schema
 interface Project {
@@ -138,6 +143,9 @@ function WaveDivider({ flip = false }: { flip?: boolean }) {
 export default function DashboardPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [userId, setUserId] = useState<string>("");
+  const { confirm, confirmProps } = useConfirm();
 
   // Three distinct sections - independent state
   const [myCreatedProjects, setMyCreatedProjects] = useState<Project[]>([]);
@@ -276,12 +284,35 @@ export default function DashboardPage() {
     }
   }, []);
 
+  const fetchCurrentUser = useCallback(async () => {
+    try {
+      const response = await fetch("/api/auth/me", {
+        credentials: "include",
+      });
+
+      if (!response.ok) {
+        console.warn("[DASHBOARD][CURRENT_USER] Failed to fetch current user");
+        return;
+      }
+
+      const data = await response.json();
+      const user = data.data;
+      
+      if (user?.id) {
+        setUserId(user.id);
+      }
+    } catch (err) {
+      console.error("[DASHBOARD][CURRENT_USER] Fetch failed:", err);
+    }
+  }, []);
+
   const fetchDashboardData = useCallback(async () => {
     console.log("[DASHBOARD] Starting data fetch...");
     setLoading(true);
 
-    // Fetch all three sections independently and in parallel
+    // Fetch all sections independently and in parallel
     await Promise.all([
+      fetchCurrentUser(),
       fetchMyCreatedProjects(),
       fetchContributedProjects(),
       fetchOpenProjects(),
@@ -289,7 +320,7 @@ export default function DashboardPage() {
 
     setLoading(false);
     console.log("[DASHBOARD] Data fetch complete");
-  }, [fetchMyCreatedProjects, fetchContributedProjects, fetchOpenProjects]);
+  }, [fetchCurrentUser, fetchMyCreatedProjects, fetchContributedProjects, fetchOpenProjects]);
 
   useEffect(() => {
     // Middleware already handles auth - just fetch data
@@ -299,14 +330,26 @@ export default function DashboardPage() {
   }, [fetchDashboardData]);
 
   const handleLogout = async () => {
+    const confirmed = await confirm({
+      title: "Confirm Logout",
+      message: "Are you sure you want to logout?",
+      confirmText: "Logout",
+      cancelText: "Cancel",
+      variant: "info",
+    });
+
+    if (!confirmed) return;
+
     // Call logout API to clear HTTP-only cookie
     try {
       await fetch("/api/auth/logout", {
         method: "POST",
         credentials: "include",
       });
+      showSuccessToast("Logged out successfully");
     } catch (err) {
       console.error("Logout error:", err);
+      showErrorToast("Logout failed. Please try again.");
     }
 
     // Redirect to login (cookie is already cleared by backend)
@@ -321,16 +364,7 @@ export default function DashboardPage() {
   });
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-linear-to-br from-green-50 via-emerald-50 to-teal-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="inline-block h-16 w-16 animate-spin rounded-full border-4 border-solid border-emerald-600 border-r-transparent shadow-lg"></div>
-          <p className="mt-6 text-lg font-medium text-gray-700 animate-pulse">
-            Loading your dashboard...
-          </p>
-        </div>
-      </div>
-    );
+    return <LoadingOverlay message="Loading your dashboard..." fullScreen />;
   }
 
   return (
@@ -513,7 +547,10 @@ export default function DashboardPage() {
                   You haven&apos;t created any projects yet. Begin your journey
                   and make an impact!
                 </p>
-                <button className="px-8 py-4 text-white bg-linear-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 rounded-xl transition-all duration-300 hover:shadow-xl hover:-translate-y-1 inline-flex items-center gap-2 font-semibold glow-on-hover">
+                <button 
+                  onClick={() => setIsCreateModalOpen(true)}
+                  className="px-8 py-4 text-white bg-linear-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 rounded-xl transition-all duration-300 hover:shadow-xl hover:-translate-y-1 inline-flex items-center gap-2 font-semibold glow-on-hover"
+                >
                   <span className="text-2xl">➕</span>
                   Create Your First Project
                 </button>
@@ -723,7 +760,10 @@ export default function DashboardPage() {
           {/* Call to Action */}
           <section className="text-center pb-16 section-enter">
             <div className="inline-block">
-              <button className="px-12 py-5 text-xl font-bold text-white bg-linear-to-r from-emerald-600 via-green-600 to-teal-600 hover:from-emerald-700 hover:via-green-700 hover:to-teal-700 rounded-2xl shadow-2xl hover:shadow-emerald-500/50 transition-all duration-300 hover:-translate-y-2 inline-flex items-center gap-3 glow-on-hover">
+              <button 
+                onClick={() => setIsCreateModalOpen(true)}
+                className="px-12 py-5 text-xl font-bold text-white bg-linear-to-r from-emerald-600 via-green-600 to-teal-600 hover:from-emerald-700 hover:via-green-700 hover:to-teal-700 rounded-2xl shadow-2xl hover:shadow-emerald-500/50 transition-all duration-300 hover:-translate-y-2 inline-flex items-center gap-3 glow-on-hover"
+              >
                 <span className="text-3xl">✨</span>
                 <span>Create New Project</span>
               </button>
@@ -731,6 +771,15 @@ export default function DashboardPage() {
           </section>
         </main>
       </div>
+
+      {/* Modals */}
+      <CreateProjectModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onSuccess={() => fetchDashboardData()}
+        ownerId={userId}
+      />
+      <ConfirmDialog {...confirmProps} />
     </>
   );
 }

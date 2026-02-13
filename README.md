@@ -313,7 +313,293 @@ Form Submitted: {
 
 ---
 
-## 🎨 Dynamic Routes
+## � UI Feedback System
+
+CollabLedger implements a comprehensive feedback system that keeps users informed about their actions through **toasts**, **modals**, and **loading indicators**. This system ensures a responsive, accessible, and user-friendly experience.
+
+### 🎯 Feedback Patterns
+
+| Feedback Type | Use Case | UI Element | Example |
+|---------------|----------|------------|---------|
+| **Instant Feedback** | Success/error notifications | Toast (Sonner) | "Project created successfully!" |
+| **Blocking Feedback** | Destructive confirmations | Modal Dialog | "Are you sure you want to delete?" |
+| **Process Feedback** | Async operations | Loading overlays/spinners | "Loading your dashboard..." |
+
+### 📚 Library Stack
+
+```bash
+# Toast notifications
+sonner                    # Modern, accessible toast library
+
+# Modal/Dialog components
+@headlessui/react        # Accessible modal primitives with focus management
+
+# Icons
+lucide-react            # Beautiful icon library for spinners, actions
+```
+
+### 🎨 Component Architecture
+
+#### **Toast System** (`src/lib/toastHelpers.ts`)
+
+**Helper Functions:**
+```typescript
+showSuccessToast(message: string)      // Green success toast
+showErrorToast(message: string)        // Red error toast  
+showInfoToast(message: string)         // Blue info toast
+showLoadingToast(message: string)      // Loading toast with spinner
+dismissToast(toastId: string)          // Dismiss specific toast
+showErrorToastFromError(error: unknown) // Auto-parse error messages
+withToast(operation, { loading, success, error }) // Async wrapper
+```
+
+**Global Setup** ([src/app/layout.tsx](src/app/layout.tsx#L38-L44)):
+```tsx
+<Toaster 
+  position="bottom-right" 
+  expand={false}
+  richColors 
+  closeButton
+  duration={4000}  // Auto-dismiss after 4 seconds
+/>
+```
+
+#### **Modal Components**
+
+**Base Modal** ([src/components/modals/BaseModal.tsx](src/components/modals/BaseModal.tsx)):
+- Built with Headless UI `Dialog` primitive
+- Focus trap prevents Tab from leaving modal
+- Escape key to close
+- Click outside overlay to dismiss
+- Smooth enter/exit transitions
+- Accessible: `aria-modal`, `aria-labelledby`, `aria-describedby`
+
+**Confirm Dialog** ([src/components/modals/ConfirmDialog.tsx](src/components/modals/ConfirmDialog.tsx)):
+- Reusable confirmation pattern
+- Variants: `danger` (red) | `info` (blue)
+- Promise-based API via `useConfirm` hook
+- Loading state support
+
+**Form Modals:**
+- [CreateProjectModal](src/components/modals/CreateProjectModal.tsx) - Create new projects
+- [CreateTaskModal](src/components/modals/CreateTaskModal.tsx) - Add tasks to projects
+- [EditProjectModal](src/components/modals/EditProjectModal.tsx) - Update project details
+- [EditTaskModal](src/components/modals/EditTaskModal.tsx) - Update task information
+
+#### **Loading Indicators**
+
+**Spinner** ([src/components/ui/Spinner.tsx](src/components/ui/Spinner.tsx)):
+```tsx
+<Spinner size="sm" | "md" | "lg" label="Loading..." />
+```
+- Accessible with `role="status"` and `aria-live="polite"`
+- Animated lucide-react `Loader2` icon
+
+**LoadingOverlay** ([src/components/ui/LoadingOverlay.tsx](src/components/ui/LoadingOverlay.tsx)):
+```tsx
+<LoadingOverlay message="Loading project..." fullScreen={true} />
+```
+- Full-screen or relative positioning
+- Backdrop blur effect
+- Prevents interaction during loading
+
+### 🔧 Integration Points
+
+#### **Authentication Flows**
+
+**Login** ([src/app/login/page.tsx](src/app/login/page.tsx)):
+- ❌ Error toast: Invalid credentials, network errors
+- ✅ Success toast: "Welcome back! Redirecting to dashboard..."
+
+**Signup** ([src/app/signup/page.tsx](src/app/signup/page.tsx)):
+- ❌ Error toast: Validation errors, duplicate email
+- ✅ Success toast: "Account created successfully! Redirecting..."
+
+#### **Dashboard** ([src/app/dashboard/page.tsx](src/app/dashboard/page.tsx))
+
+**Modals:**
+- "Create New Project" button → `CreateProjectModal`
+- Logout button → Confirm dialog: "Are you sure you want to logout?"
+
+**Toasts:**
+- ✅ Project created successfully
+- ✅ Logged out successfully
+- ❌ Data fetch failures (shown automatically, non-blocking)
+
+**Loading:**
+- Full-screen `LoadingOverlay` during initial data fetch
+
+#### **Project Detail** ([src/app/projects/[id]/page.tsx](src/app/projects/[id]/page.tsx))
+
+**Modals:**
+- "Add Task" button → `CreateTaskModal`
+- Edit task icon → `EditTaskModal` (pre-filled)
+- Delete task icon → Confirm dialog: "Are you sure you want to delete this task?"
+- Edit project button → `EditProjectModal`
+- Delete project button → Confirm dialog with danger variant
+
+**Toasts:**
+- ✅ Task created successfully
+- ✅ Task updated successfully  
+- ✅ Task deleted successfully
+- ✅ Project updated successfully
+- ✅ Project deleted successfully
+- ❌ API errors with user-friendly messages
+
+**Loading:**
+- Full-screen overlay during project data fetch
+
+### ♿ Accessibility Features
+
+**Keyboard Navigation:**
+- `Tab` / `Shift+Tab` to navigate modal elements
+- `Escape` to close modals
+- Focus trap keeps keyboard focus within modal
+- Focus restoration when modal closes
+
+**Screen Reader Support:**
+- Toast announcements via `aria-live="polite"` (non-intrusive)
+- Modal labels with `aria-labelledby` and `aria-describedby`
+- Loading indicators with `role="status"`
+- Button labels with `aria-label`
+
+**Visual Feedback:**
+- Color-coded toasts (green=success, red=error, blue=info)
+- Smooth transitions (300ms) for modals
+- Backdrop blur reduces cognitive load
+- Loading spinners with clear messages
+
+### 🎯 UX Principles Followed
+
+1. **Non-Intrusive Notifications**: Toasts appear in bottom-right, auto-dismiss, don't block interaction
+2. **Clear Feedback**: Every user action gets immediate visual confirmation
+3. **Prevent Errors**: Confirm dialogs for destructive actions (delete project/task)
+4. **Maintain Context**: Loading overlays preserve page state, modals close on success
+5. **Accessible by Default**: All components use semantic HTML and ARIA attributes
+
+### 🧪 Developer Guide
+
+**Using Toasts:**
+```tsx
+import { showSuccessToast, showErrorToast } from '@/lib/toastHelpers';
+
+// Simple success
+showSuccessToast('Changes saved!');
+
+// Error from catch block
+try {
+  await api.call();
+} catch (error) {
+  showErrorToastFromError(error); // Auto-parses error message
+}
+
+// Async wrapper with loading/success/error
+await withToast(
+  () => createProject(data),
+  {
+    loading: 'Creating project...',
+    success: 'Project created!',
+    error: 'Failed to create project'
+  }
+);
+```
+
+**Using Confirm Dialog:**
+```tsx
+import { useConfirm } from '@/hooks/useConfirm';
+import { ConfirmDialog } from '@/components/modals/ConfirmDialog';
+
+function MyComponent() {
+  const { confirm, confirmProps } = useConfirm();
+
+  const handleDelete = async () => {
+    const confirmed = await confirm({
+      title: 'Delete Item',
+      message: 'This action cannot be undone.',
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      variant: 'danger'
+    });
+
+    if (confirmed) {
+      // User clicked "Delete"
+      await deleteItem();
+    }
+  };
+
+  return (
+    <>
+      <button onClick={handleDelete}>Delete</button>
+      <ConfirmDialog {...confirmProps} />
+    </>
+  );
+}
+```
+
+**Using Form Modals:**
+```tsx
+import { CreateProjectModal } from '@/components/modals/CreateProjectModal';
+
+function Dashboard() {
+  const [isOpen, setIsOpen] = useState(false);
+  const [userId, setUserId] = useState('user-id');
+  
+  return (
+    <>
+      <button onClick={() => setIsOpen(true)}>Create Project</button>
+      <CreateProjectModal
+        isOpen={isOpen}
+        onClose={() => setIsOpen(false)}
+        onSuccess={() => {
+          // Refresh project list
+          fetchProjects();
+        }}
+        ownerId={userId}
+      />
+    </>
+  );
+}
+```
+
+### 🔍 Error Handling
+
+**Global Error Boundary** ([src/components/ErrorBoundary.tsx](src/components/ErrorBoundary.tsx)):
+- Catches React errors and prevents app crash
+- Logs errors via `logger.ts`
+- Shows toast notification: "An unexpected error occurred"
+- Displays fallback UI with "Refresh Page" and "Go Back" options
+- Development mode shows error stack trace
+
+**Error Message Parsing:**
+- Backend errors are parsed from API response `message` field
+- Network errors show user-friendly fallback: "An error occurred. Please try again."
+- Validation errors displayed inline (forms) or via toast (API responses)
+
+### 📸 Visual Examples
+
+**Toast Notifications:**
+- Success (green): "✓ Project created successfully!"
+- Error (red): "✗ Failed to delete task"
+- Info (blue): "ℹ Processing your request..."
+- Loading (spinner): "⏳ Saving changes..."
+
+**Modal Patterns:**
+- Create/Edit: Form with Cancel + Submit buttons
+- Confirm Delete: Warning icon + danger-styled Confirm button
+- Error fallback: Error icon + Refresh + Go Back actions
+
+### 🚀 Future Enhancements
+
+- **Undo functionality** for destructive actions
+- **Optimistic updates** (update UI before API response)
+- **Persistent toast queue** (show multiple toasts sequentially)
+- **Dark mode support** for all feedback components
+- **Custom toast positions** per use case
+- **Progress bars** for long-running operations (file uploads)
+
+---
+
+## �🎨 Dynamic Routes
 
 ### `/projects/[id]` - Project Detail Page
 

@@ -1,17 +1,16 @@
 "use client";
 
-import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Inter } from "next/font/google";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { signupSchema, SignupFormData } from "@/schemas/signupSchema";
+import { showSuccessToast, showErrorToast } from "@/lib/toastHelpers";
 const inter = Inter({ subsets: ["latin"] });
 
 export default function SignupPage() {
   const router = useRouter();
-  const [error, setError] = useState("");
 
   const {
     register,
@@ -31,7 +30,6 @@ export default function SignupPage() {
       password: "***",
       confirmPassword: "***",
     });
-    setError("");
 
     console.log("[SIGNUP] loading:", true);
 
@@ -59,13 +57,13 @@ export default function SignupPage() {
       console.log("[SIGNUP] response body:", responseData);
 
       if (!response.ok) {
-        console.error("[SIGNUP ERROR] API error:", responseData.message);
-        setError(responseData.message || "Signup failed");
+        showErrorToast(responseData.message || "Signup failed");
         return;
       }
 
       // Backend sets HTTP-only cookie, no need to manually store anything
       console.log("[SIGNUP] ✅ Signup successful!");
+      showSuccessToast("Account created successfully! Redirecting...");
       console.log("[SIGNUP] ➡️ Redirecting to /dashboard in 100ms...");
 
       // Small delay to ensure cookie is set before navigation
@@ -76,7 +74,7 @@ export default function SignupPage() {
       router.push("/dashboard");
     } catch (err) {
       console.error("[SIGNUP ERROR] Network error:", err);
-      setError("An error occurred. Please try again.");
+      showErrorToast("An error occurred. Please try again.");
     } finally {
       console.log("[SIGNUP] loading:", false);
     }
@@ -109,12 +107,6 @@ export default function SignupPage() {
           </div>
 
           <form className="space-y-6" onSubmit={handleSubmit(onSubmit)}>
-            {error && (
-              <div className="rounded-lg bg-red-500/10 border border-red-500/20 p-4">
-                <p className="text-sm font-medium text-red-100">{error}</p>
-              </div>
-            )}
-
             <div className="space-y-5">
               <div>
                 <label
