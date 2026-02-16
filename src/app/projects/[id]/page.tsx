@@ -100,6 +100,9 @@ export default function ProjectDetailPage() {
     try {
       setLoading(true);
 
+      // Simulate network delay to visualize loading state (remove in production)
+      await new Promise((r) => setTimeout(r, 2000));
+
       // Cookie is sent automatically
       const response = await fetch(`/api/projects/${id}`, {
         credentials: "include",
@@ -122,7 +125,9 @@ export default function ProjectDetailPage() {
       setProject(data.data);
     } catch (err) {
       console.error("[PROJECT DETAIL ERROR]", err);
-      showErrorToast(err instanceof Error ? err.message : "Failed to load project");
+      showErrorToast(
+        err instanceof Error ? err.message : "Failed to load project"
+      );
     } finally {
       setLoading(false);
     }
@@ -131,7 +136,8 @@ export default function ProjectDetailPage() {
   const handleDeleteProject = async () => {
     const confirmed = await confirm({
       title: "Delete Project",
-      message: "Are you sure you want to delete this project? This action cannot be undone.",
+      message:
+        "Are you sure you want to delete this project? This action cannot be undone.",
       confirmText: "Delete",
       cancelText: "Cancel",
       variant: "danger",
@@ -159,7 +165,8 @@ export default function ProjectDetailPage() {
   const handleDeleteTask = async (taskId: string) => {
     const confirmed = await confirm({
       title: "Delete Task",
-      message: "Are you sure you want to delete this task? This action cannot be undone.",
+      message:
+        "Are you sure you want to delete this task? This action cannot be undone.",
       confirmText: "Delete",
       cancelText: "Cancel",
       variant: "danger",
@@ -200,9 +207,12 @@ export default function ProjectDetailPage() {
           <div className="w-24 h-24 bg-red-100 rounded-full mx-auto flex items-center justify-center mb-6">
             <span className="text-5xl">❌</span>
           </div>
-          <h2 className="text-3xl font-bold text-gray-900 mb-4">Project Not Found</h2>
+          <h2 className="text-3xl font-bold text-gray-900 mb-4">
+            Project Not Found
+          </h2>
           <p className="text-gray-600 mb-8">
-            The project you&apos;re looking for doesn&apos;t exist or has been removed.
+            The project you&apos;re looking for doesn&apos;t exist or has been
+            removed.
           </p>
           <Link
             href="/dashboard"
@@ -321,7 +331,7 @@ export default function ProjectDetailPage() {
           <div className="flex items-center justify-between mb-8">
             <h2 className="text-3xl font-bold text-gray-900">Tasks</h2>
             {isOwner && (
-              <button 
+              <button
                 onClick={() => setIsCreateTaskModalOpen(true)}
                 className="px-6 py-3 text-white bg-linear-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 rounded-xl transition-all duration-300 hover:shadow-lg font-semibold"
               >
@@ -344,7 +354,7 @@ export default function ProjectDetailPage() {
                   : "This project doesn't have any tasks yet."}
               </p>
               {isOwner && (
-                <button 
+                <button
                   onClick={() => setIsCreateTaskModalOpen(true)}
                   className="px-8 py-4 text-white bg-linear-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 rounded-xl transition-all duration-300 hover:shadow-xl font-semibold inline-flex items-center gap-2"
                 >

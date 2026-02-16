@@ -297,7 +297,7 @@ export default function DashboardPage() {
 
       const data = await response.json();
       const user = data.data;
-      
+
       if (user?.id) {
         setUserId(user.id);
       }
@@ -310,6 +310,9 @@ export default function DashboardPage() {
     console.log("[DASHBOARD] Starting data fetch...");
     setLoading(true);
 
+    // Simulate network delay to visualize loading state (remove in production)
+    await new Promise((r) => setTimeout(r, 2000));
+
     // Fetch all sections independently and in parallel
     await Promise.all([
       fetchCurrentUser(),
@@ -320,7 +323,12 @@ export default function DashboardPage() {
 
     setLoading(false);
     console.log("[DASHBOARD] Data fetch complete");
-  }, [fetchCurrentUser, fetchMyCreatedProjects, fetchContributedProjects, fetchOpenProjects]);
+  }, [
+    fetchCurrentUser,
+    fetchMyCreatedProjects,
+    fetchContributedProjects,
+    fetchOpenProjects,
+  ]);
 
   useEffect(() => {
     // Middleware already handles auth - just fetch data
@@ -547,7 +555,7 @@ export default function DashboardPage() {
                   You haven&apos;t created any projects yet. Begin your journey
                   and make an impact!
                 </p>
-                <button 
+                <button
                   onClick={() => setIsCreateModalOpen(true)}
                   className="px-8 py-4 text-white bg-linear-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 rounded-xl transition-all duration-300 hover:shadow-xl hover:-translate-y-1 inline-flex items-center gap-2 font-semibold glow-on-hover"
                 >
@@ -760,7 +768,7 @@ export default function DashboardPage() {
           {/* Call to Action */}
           <section className="text-center pb-16 section-enter">
             <div className="inline-block">
-              <button 
+              <button
                 onClick={() => setIsCreateModalOpen(true)}
                 className="px-12 py-5 text-xl font-bold text-white bg-linear-to-r from-emerald-600 via-green-600 to-teal-600 hover:from-emerald-700 hover:via-green-700 hover:to-teal-700 rounded-2xl shadow-2xl hover:shadow-emerald-500/50 transition-all duration-300 hover:-translate-y-2 inline-flex items-center gap-3 glow-on-hover"
               >
