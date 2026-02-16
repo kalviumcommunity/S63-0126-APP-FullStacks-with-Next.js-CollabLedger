@@ -1959,4 +1959,285 @@ In production, you’d typically use a stronger invalidation strategy (key versi
 Typical expectations for a read-heavy list route:
 - **Cold request (cache miss)**: Postgres + Prisma query + serialization (often tens of milliseconds, depending on dataset and connection state).
 - **Cached request (cache hit)**: Redis GET + JSON parse (often a few milliseconds).
+
+---
+
+## 🎨 Loading States & Error Boundaries
+
+This application implements sophisticated loading states and error handling using Next.js 13+ App Router's `loading.tsx` and `error.tsx` file conventions.
+
+### Architecture Overview
+
+### Loading Skeletons (`loading.tsx`)
+
+The App Router automatically renders `loading.tsx` files while asynchronous data is being fetched. This creates an immediate visual response to user navigation, preventing the appearance of an unresponsive interface.
+
+**Key Benefits:**
+- **Immediate feedback**: Users see a skeleton UI instantly upon navigation
+- **Perceived performance**: Appears faster even if actual load time hasn't changed
+- **Reduces bounce rate**: Users are less likely to click away if they see loading progress
+- **Professional appearance**: Skeleton loaders are industry-standard for modern apps
+
+**Implemented Loading States:**
+
+#### 1. **Dashboard Loading** (`src/app/dashboard/loading.tsx`)
+- Displays skeleton cards matching the dashboard layout
+- Shows skeleton stats (4 cards)
+- Shows skeleton project cards in a grid
+- Animated dots indicating loading progress
+
+**When it appears:**
+```
+User clicks Dashboard → Middleware validates auth → Component mounts
+↓
+loading.tsx displays immediately (0ms)
+↓
+Dashboard data fetches (with 2s simulated delay)
+↓
+page.tsx renders with real data
+```
+
+#### 2. **Project Details Loading** (`src/app/projects/[id]/loading.tsx`)
+- Displays skeleton project header with title and description
+- Shows task list skeleton with multiple task item placeholders
+- Animated loading indicator
+
+**When it appears:**
+```
+User navigates to /projects/123 → [id] route captured
+↓
+loading.tsx displays immediately
+↓
+fetchProject(123) starts (with 2s simulated delay)
+↓
+page.tsx renders with project data
+```
+
+### Skeleton Components (`src/components/ui/Skeleton.tsx`)
+
+A reusable skeleton component system using Tailwind CSS's `animate-pulse` utility:
+
+```tsx
+// Base skeleton component
+<Skeleton className="h-6 w-48 mb-2" />  // Animated gray box
+
+// Composed skeletons
+<StatCardSkeleton />      // For dashboard stats
+<ProjectCardSkeleton />   // For project cards
+<TaskItemSkeleton />      // For individual tasks
+```
+
+**Implementation Details:**
+- Uses `bg-neutral-200` for neutral, professional appearance
+- `animate-pulse` creates a subtle breathing effect
+- Rounded corners match actual UI components
+- Flexible sizing with Tailwind classes
+
+### Error Boundaries (`error.tsx`)
+
+The App Router automatically catches errors in child segments and renders `error.tsx` with access to the error object and a `reset()` function.
+
+**Implemented Error Boundaries:**
+
+#### 1. **Dashboard Error** (`src/app/dashboard/error.tsx`)
+- Displays friendly error message
+- Shows error details in development mode only
+- Provides "Try Again" button (calls `reset()` to re-render)
+- Provides "Go Home" navigation link
+
+**Error Recovery Flow:**
+```
+Error thrown in dashboard → error.tsx catches it
+↓
+Display: "Oops! Dashboard Error"
+↓
+User clicks "Try Again"
+↓
+reset() re-executes fetchDashboardData()
+↓
+Either succeeds (page.tsx renders) or fails again (error.tsx stays)
+```
+
+#### 2. **Project Details Error** (`src/app/projects/[id]/error.tsx`)
+- Displays "Project Not Found" message
+- Explains possible reasons (deleted, no permission)
+- Provides "Try Again" button (re-fetch project)
+- Provides "Return to Dashboard" navigation
+
+**Security Consideration:**
+Both error boundaries show different error messages based on the actual error:
+- `404` errors: "Project not found"
+- `403` errors: "Permission denied" 
+- Network errors: "Connection failed"
+- This gives users helpful context without exposing system details
+
+### Testing Loading & Error States
+
+#### **1. Visualizing Loading States with Network Throttling**
+
+**Steps to test:**
+1. Navigate to `http://localhost:3000/dashboard`
+2. Open DevTools (F12)
+3. Go to **Network** tab
+4. Click the speed dropdown (usually shows "No throttling")
+5. Select **Slow 3G** or **Custom** (enter 2000ms latency)
+6. Refresh the page (Ctrl+R)
+
+**What you'll see:**
+- Loading skeleton displays immediately
+- Skeleton animates with `animate-pulse` effect
+- Animated dots bounce while loading
+- After ~2 seconds, real dashboard data replaces skeleton
+
+**Why this matters:**
+- 4G networks are not universal; many users experience slow connections
+- Mobile networks often experience packet loss and latency spikes
+- Skeleton loaders prove your app remains responsive during load
+
+#### **2. Testing Error Boundaries**
+
+**Option A: Intentional Test Error**
+
+Modify `src/app/dashboard/page.tsx` temporarily:
+
+```tsx
+useEffect(() => {
+  // Test error boundary
+  throw new Error("Test error for error boundary");
+}, []);
+```
+
+Then:
+1. Navigate to dashboard
+2. Error boundary catches the error
+3. See error message with "Try Again" button
+4. Click "Try Again" to test `reset()` function
+5. Remove the test error
+
+**Option B: Network Error Simulation**
+
+Use DevTools Network tab:
+1. Open DevTools → Network tab
+2. Check the box next to network name: **Offline**
+3. Navigate to dashboard
+4. All API calls fail
+5. Component receives error state
+6. Error boundary renders with message
+7. Uncheck Offline, click "Try Again"
+8. Data successfully loads
+
+#### **3. Production-Ready Simulated Delay**
+
+The 2-second delay in `fetchDashboardData()` and `fetchProject()` is intentional for demonstration. In production:
+
+```tsx
+// Development/Testing
+const SIMULATE_DELAY = process.env.NODE_ENV === 'development' ? 2000 : 0;
+await new Promise(r => setTimeout(r, SIMULATE_DELAY));
+
+// OR remove entirely and rely on actual network latency
+```
+
+### User Experience Impact
+
+#### **Reduced Perceived Wait Time**
+- **Before**: White screen → After ~2 seconds → Content appears
+- **After**: Skeleton screen (0ms) → Content progressively appears → After ~2 seconds → Final polish
+
+The skeleton gives users immediate feedback, reducing "perceived" load time even though actual time is the same.
+
+#### **Trust & Professional Appearance**
+- Skeletons show the app is "working" on their request
+- Demonstrates intentional design, not a broken UI
+- Common in apps like LinkedIn, Twitter, YouTube
+- Users trust applications that show loading states
+
+#### **Error Resilience**
+- Errors no longer break the entire page
+- Users can recover with one click ("Try Again")
+- Clear communication: "What went wrong" + "how to fix it"
+- Prevents users from force-refreshing or navigating away
+
+### Code Structure
+
+```
+src/
+├── app/
+│   ├── dashboard/
+│   │   ├── page.tsx           # Main component (with 2s delay)
+│   │   ├── loading.tsx        # Skeleton UI
+│   │   ├── error.tsx          # Error boundary
+│   │   └── DashboardActions.tsx
+│   ├── projects/
+│   │   └── [id]/
+│   │       ├── page.tsx       # Main component (with 2s delay)
+│   │       ├── loading.tsx    # Skeleton UI
+│   │       └── error.tsx      # Error boundary
+└── components/
+    └── ui/
+        └── Skeleton.tsx       # Reusable skeleton components
+```
+
+### How Next.js App Router Handles These Files
+
+Next.js automatically matches file names in the file system to create enhanced routing behavior:
+
+```
+┌─────────────────────────────────────────┐
+│  User navigates to /dashboard           │
+└──────────────────┬──────────────────────┘
+                   │
+        ┌──────────▼──────────┐
+        │  Route match found  │
+        └──────────┬──────────┘
+                   │
+        ┌──────────▼────────────────────┐
+        │ Render loading.tsx immediately │
+        │ (skeleton UI shown to user)    │
+        └──────────┬────────────────────┘
+                   │
+        ┌──────────▼──────────────────┐
+        │  page.tsx data source runs  │
+        │ (async fetch, 2s delay)     │
+        └──────────┬──────────────────┘
+                   │
+        ┌──────────▼─────────────────────────┐
+        │ Are there any errors?               │
+        └──────────┬──────┬──────────────────┘
+                   │      │
+           ┌───────▼┐   ┌─▼──────────┐
+           │ Yes    │   │ No         │
+           └───┬────┘   └─┬──────────┘
+               │         │
+        ┌──────▼─┐    ┌──▼──────────┐
+        │Render  │    │ Replace     │
+        │error   │    │ loading.tsx │
+        │.tsx    │    │ with        │
+        └────────┘    │ page.tsx    │
+                      └─────────────┘
+```
+
+### Browser DevTools Visualization
+
+#### **Network Tab:**
+- Shows API calls to `/api/projects` and `/api/auth/me`
+- With throttling enabled, you can watch the timeline
+- Skeleton displays while requests are pending
+
+#### **React DevTools (if installed):**
+- See `<Suspense>` boundaries (managed by Next.js)
+- Watch component tree change from `loading.tsx` to `page.tsx`
+
+### Best Practices Applied
+
+1. ✅ **Skeleton shapes match content**: Stats skeleton matches stat card layout
+2. ✅ **Neutral color palette**: Gray/neutral tones avoid harsh contrast
+3. ✅ **Subtle animations**: `animate-pulse` is calm, not distracting
+4. ✅ **Clear error messaging**: Users understand what failed and why
+5. ✅ **Retry mechanism**: `reset()` function allows recovery without page reload
+6. ✅ **Development vs production**: Error details only shown in dev mode
+7. ✅ **Accessibility**: Semantic HTML, ARIA labels considered
+8. ✅ **Responsive design**: Skeletons adapt to mobile/tablet/desktop
+
+**Built with ❤️ for the NGO community**
 **Built with ❤️ for the NGO community**
